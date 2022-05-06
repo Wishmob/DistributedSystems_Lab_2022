@@ -11,8 +11,8 @@ COPY . /app
 WORKDIR /app
 
 # Run command as described:
-# go build will build an executable file named server in the current directory
+# go build will build an executable file named iot_gateway in the current directory
 RUN go build -o iot_gateway .
 
-# Run the server executable
+# Run the iot_gateway executable
 CMD [ "/app/iot_gateway" ]

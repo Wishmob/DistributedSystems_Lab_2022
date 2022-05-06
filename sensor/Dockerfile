@@ -11,8 +11,8 @@ COPY . /app
 WORKDIR /app
 
 # Run command as described:
-# go build will build an executable file named server in the current directory
+# go build will build an executable file named sensor in the current directory
 RUN go build -o sensor .
 
-# Run the server executable
+# Run the sensor executable
 CMD [ "/app/sensor" ]
