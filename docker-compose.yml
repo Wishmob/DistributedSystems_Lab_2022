@@ -1,0 +1,11 @@
+version: '3'
+services:
+  iot_gateway:
+    build: ./iot_gateway
+    container_name: iot_gateway
+  sensor:
+    build: ./sensor
+    container_name: sensor
+
+
+

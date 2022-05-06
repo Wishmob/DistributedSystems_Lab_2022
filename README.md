@@ -3,15 +3,10 @@
 by Alexander Breiter & Lukas Schandl
 
 Building and Usage:
-0. Install Go, see [docs](https://golang.org/)
+0. Install docker, see [docs](https://www.docker.com/get-started/)
 
-1. `make build` on command line
+1. start docker
 
-2. `bin/server` to start server component with defaults (`bin/server -h` for help)
+2. `make start` on command line in root dir
 
-3. `bin/client` to start client component with defaults (`bin/client -h` for help)
-
-4. The client will end itself. Kill the server using ctrl-c.
-
-5. `make clean` will remove binaries to start from scratch.
-
+3. be amazed
