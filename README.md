@@ -1,4 +1,4 @@
-# Repo for exercises for Distributed Systems lecture in SS22
+# Repo for system developed in _Distributed Systems_ lecture in SS22
 
 by Alexander Breiter & Lukas Schandl
 
@@ -14,3 +14,4 @@ Building and Usage:
 4. The client will end itself. Kill the server using ctrl-c.
 
 5. `make clean` will remove binaries to start from scratch.
+
