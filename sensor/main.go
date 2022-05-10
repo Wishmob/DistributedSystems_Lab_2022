@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math/rand"
 	"net"
 	"strconv"
 	"time"
@@ -19,6 +20,13 @@ const (
 	SENSOR_TYPE string = "TMP"
 	SENSOR_ID   int    = 1
 )
+
+func generateData() int {
+	max := 100
+	min := 10
+	randomData := rand.Intn(max-min) + min
+	return randomData
+}
 
 //registerToGateway sends a UDP package over the given socket to notify the gateway that it has been started
 func registerToGateway(socket Socket) error {
@@ -51,10 +59,11 @@ func registerToGateway(socket Socket) error {
 }
 
 func main() {
+	rand.Seed(time.Now().UTC().UnixNano())
 	var socket = Socket{}
 	flag.StringVar(&socket.Host, "host", "iot_gateway", "host the client should send udp packets to")
 	flag.IntVar(&socket.Port, "port", 5000, "port the client should send udp packets to")
-
+	fmt.Println(generateData())
 	err := registerToGateway(socket)
 	for err != nil {
 		log.Printf("Registration to gateway failed: %v. Retrying in 5 seconds", err)
