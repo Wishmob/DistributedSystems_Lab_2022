@@ -96,7 +96,7 @@ func pollRegisteredSensors() {
 		time.Sleep(3 * time.Second) //Todo remove
 		for _, currentSensor := range registeredSensors {
 			buf := [1]byte{1}
-			currentSensor.Addr.Port = 7030
+			currentSensor.Addr.Port = 7030 //Todo move to registration and add to sensor struct
 			//sensorAddr, err := net.ResolveUDPAddr("udp4", currentSensor.Addr.IP+":"+strconv.Itoa(7030))
 			conn, err := net.DialUDP("udp", nil, &currentSensor.Addr)
 			if err != nil {
@@ -118,7 +118,7 @@ func pollRegisteredSensors() {
 			if err != nil {
 				panic(err)
 			}
-			log.Printf("Data Recieved: %s\n", buf[0:length])
+			log.Printf("Data Recieved: %s\n", dataBuffer[0:length])
 		}
 	}
 }

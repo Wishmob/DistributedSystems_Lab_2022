@@ -63,7 +63,7 @@ func main() {
 	var socket = Socket{}
 	flag.StringVar(&socket.Host, "host", "iot_gateway", "host the client should send udp packets to")
 	flag.IntVar(&socket.Port, "port", 5000, "port the client should send udp packets to")
-	fmt.Println(generateData())
+
 	err := registerToGateway(socket)
 	for err != nil {
 		log.Printf("Registration to gateway failed: %v. Retrying in 5 seconds", err)
@@ -115,14 +115,14 @@ func main() {
 func handleDataRequest(conn *net.UDPConn) {
 	for {
 		var buf [MAX_LENGTH]byte
-		length, addr, err := conn.ReadFromUDP(buf[0:])
-		log.Printf("Data Request recieved from %v with content: %s\n", addr, buf)
+		_, addr, err := conn.ReadFromUDP(buf[0:])
+		log.Printf("Data Request recieved from %v\n", addr)
 		if err != nil {
 			panic(err)
 		}
-
+		data := generateData()
 		//replace data sent with random data
-		_, err = conn.WriteToUDP(buf[0:length], addr)
+		_, err = conn.WriteToUDP([]byte(strconv.Itoa(data)), addr)
 		if err != nil {
 			panic(err)
 		}
