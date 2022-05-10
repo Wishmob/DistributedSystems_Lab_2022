@@ -2,10 +2,12 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 //The Different sensor types
@@ -16,16 +18,16 @@ const (
 )
 
 type Sensor struct {
-	Id   int
+	Id   string
 	Type string
-	Addr string
+	Addr net.UDPAddr
 }
 
 const (
 	MAX_LENGTH int = 1024
 )
 
-var registeredSensors map[int]Sensor
+var registeredSensors map[string]Sensor
 
 func main() {
 	log.Println("Listening on port 5000 for udp packets...")
@@ -43,12 +45,15 @@ func main() {
 	}
 	defer conn.Close()
 
-	//for {
-	//	listenForSensorRegistration(conn)
-	//}
-	go listenForSensorRegistration(conn)
-	for {
-	}
+	registeredSensors = make(map[string]Sensor)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		listenForSensorRegistration(conn)
+	}()
+
+	wg.Wait()
 }
 
 func listenForSensorRegistration(conn *net.UDPConn) {
@@ -60,12 +65,18 @@ func listenForSensorRegistration(conn *net.UDPConn) {
 			panic(err)
 		}
 		sensorData := strings.Split(string(buf[:]), " ")
-		for v, k := range sensorData {
-			log.Printf("sensor data: %d, %s\n", v, k)
-		}
+		var sensor Sensor
+		sensor.Type = sensorData[0]
+		sensor.Id = sensorData[1]
+		sensor.Addr = *addr
+
+		//Add new sensor to map
+		registeredSensors[sensor.Id] = sensor
+
 		_, err = conn.WriteToUDP(buf[0:length], addr)
 		if err != nil {
 			panic(err)
 		}
+		fmt.Printf("sensor registriert : %v\n", sensor)
 	}
 }
