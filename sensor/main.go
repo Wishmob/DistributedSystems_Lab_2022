@@ -70,6 +70,19 @@ func main() {
 		time.Sleep(5 * time.Second)
 		err = registerToGateway(socket)
 	}
+
+	addrForDataRequests, err := net.ResolveUDPAddr("udp4", ":"+strconv.Itoa(7030))
+	if err != nil {
+		panic(err)
+	}
+
+	connForDataRequests, err := net.ListenUDP("udp", addrForDataRequests)
+	if err != nil {
+		panic(err)
+	}
+	defer connForDataRequests.Close()
+
+	handleDataRequest(connForDataRequests)
 	//
 	//addr, err := net.ResolveUDPAddr("udp4", socket.Host+":"+strconv.Itoa(socket.Port))
 	//if err != nil {
@@ -97,4 +110,21 @@ func main() {
 	//	panic(fmt.Sprintf("sensor read failed %v", err))
 	//}
 	//fmt.Printf("Reply is: %s\n", buf[0:length])
+}
+
+func handleDataRequest(conn *net.UDPConn) {
+	for {
+		var buf [MAX_LENGTH]byte
+		length, addr, err := conn.ReadFromUDP(buf[0:])
+		log.Printf("Data Request recieved from %v with content: %s\n", addr, buf)
+		if err != nil {
+			panic(err)
+		}
+
+		//replace data sent with random data
+		_, err = conn.WriteToUDP(buf[0:length], addr)
+		if err != nil {
+			panic(err)
+		}
+	}
 }
