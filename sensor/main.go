@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/rand"
 	"net"
+	"os"
 	"strconv"
 	"time"
 )
@@ -18,7 +19,8 @@ type Socket struct {
 const (
 	MAX_LENGTH  int    = 1024
 	SENSOR_TYPE string = "TMP"
-	SENSOR_ID   int    = 1
+	//SENSOR_ID   int    = 1
+	DATA_PORT int = 7030
 )
 
 func generateData() int {
@@ -41,8 +43,12 @@ func registerToGateway(socket Socket) error {
 	}
 	defer conn.Close()
 
+	sensorID, err := strconv.Atoi(os.Getenv("ID"))
+	if err != nil {
+		panic(err)
+	}
 	//Sending registration request to gateway
-	request := fmt.Sprintf("%s %d", SENSOR_TYPE, SENSOR_ID)
+	request := fmt.Sprintf("%s|%d|%d|", SENSOR_TYPE, sensorID, DATA_PORT)
 	_, err = conn.Write([]byte(request))
 	if err != nil {
 		return err
@@ -63,7 +69,6 @@ func main() {
 	var socket = Socket{}
 	flag.StringVar(&socket.Host, "host", "iot_gateway", "host the client should send udp packets to")
 	flag.IntVar(&socket.Port, "port", 5000, "port the client should send udp packets to")
-
 	err := registerToGateway(socket)
 	for err != nil {
 		log.Printf("Registration to gateway failed: %v. Retrying in 5 seconds", err)
@@ -83,45 +88,18 @@ func main() {
 	defer connForDataRequests.Close()
 
 	handleDataRequest(connForDataRequests)
-	//
-	//addr, err := net.ResolveUDPAddr("udp4", socket.Host+":"+strconv.Itoa(socket.Port))
-	//if err != nil {
-	//	panic(err)
-	//}
-	//log.Printf("sending message to %v\n", addr)
-	//conn, err := net.DialUDP("udp", nil, addr)
-	//if err != nil {
-	//	panic(err)
-	//}
-	//defer conn.Close()
-	//
-	////reader := bufio.NewReader(os.Stdin)
-	////fmt.Print("Enter message: ")
-	////request, _ := reader.ReadString('\n')
-	//
-	//_, err = conn.Write([]byte("fuck my life"))
-	//if err != nil {
-	//	panic(fmt.Sprintf("sensor write failed %v", err))
-	//}
-	//
-	//var buf [MAX_LENGTH]byte
-	//length, err := conn.Read(buf[0:])
-	//if err != nil {
-	//	panic(fmt.Sprintf("sensor read failed %v", err))
-	//}
-	//fmt.Printf("Reply is: %s\n", buf[0:length])
 }
 
+//handleDataRequest replies with data to udp requests from the gateway
 func handleDataRequest(conn *net.UDPConn) {
 	for {
 		var buf [MAX_LENGTH]byte
 		_, addr, err := conn.ReadFromUDP(buf[0:])
-		log.Printf("Data Request recieved from %v\n", addr)
 		if err != nil {
 			panic(err)
 		}
+		log.Printf("Data Request recieved from %v\n", addr)
 		data := generateData()
-		//replace data sent with random data
 		_, err = conn.WriteToUDP([]byte(strconv.Itoa(data)), addr)
 		if err != nil {
 			panic(err)

@@ -18,16 +18,29 @@ const (
 )
 
 type Sensor struct {
-	Id   string
-	Type string
-	Addr net.UDPAddr
+	Id       int
+	Type     string
+	Addr     net.UDPAddr
+	DataPort int
 }
 
 const (
 	MAX_LENGTH int = 1024
 )
 
-var registeredSensors map[string]Sensor
+type SensorCollection struct {
+	sensors map[int]Sensor
+	mutex   sync.RWMutex
+}
+
+func InitSensors() SensorCollection {
+	return SensorCollection{
+		sensors: make(map[int]Sensor),
+		mutex:   sync.RWMutex{},
+	}
+}
+
+var registeredSensors SensorCollection
 
 func main() {
 	log.Println("Listening on port 5000 for udp packets...")
@@ -45,7 +58,8 @@ func main() {
 	}
 	defer conn.Close()
 
-	registeredSensors = make(map[string]Sensor)
+	registeredSensors = InitSensors()
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -54,7 +68,7 @@ func main() {
 	}()
 
 	wg.Add(1)
-	//time.Sleep(3 * time.Second) //Todo remove
+	time.Sleep(3 * time.Second) //Todo remove
 	go func() {
 		defer wg.Done()
 		pollRegisteredSensors()
@@ -71,15 +85,24 @@ func listenForSensorRegistration(conn *net.UDPConn) {
 		if err != nil {
 			panic(err)
 		}
-		sensorData := strings.Split(string(buf[:]), " ")
+		sensorData := strings.Split(string(buf[:]), "|")
 		var sensor Sensor
 		sensor.Type = sensorData[0]
-		sensor.Id = sensorData[1]
+		sensor.Id, err = strconv.Atoi(sensorData[1])
+		if err != nil {
+			panic(err)
+		}
+		sensor.DataPort, err = strconv.Atoi(sensorData[2])
+		if err != nil {
+			panic(err)
+		}
 		sensor.Addr = *addr
 
 		//Add new sensor to map
 		//TODO add mutex
-		registeredSensors[sensor.Id] = sensor
+		registeredSensors.mutex.Lock()
+		registeredSensors.sensors[sensor.Id] = sensor
+		registeredSensors.mutex.Unlock()
 
 		_, err = conn.WriteToUDP(buf[0:length], addr)
 		if err != nil {
@@ -91,34 +114,40 @@ func listenForSensorRegistration(conn *net.UDPConn) {
 
 func pollRegisteredSensors() {
 	//Todo maybe start every request in separate go routine
-	//Todo Add mutex for access to map
 	for {
-		time.Sleep(3 * time.Second) //Todo remove
-		for _, currentSensor := range registeredSensors {
+		time.Sleep(3 * time.Millisecond) //Todo remove
+		registeredSensors.mutex.RLock()
+		for _, currentSensor := range registeredSensors.sensors {
 			buf := [1]byte{1}
-			currentSensor.Addr.Port = 7030 //Todo move to registration and add to sensor struct
-			//sensorAddr, err := net.ResolveUDPAddr("udp4", currentSensor.Addr.IP+":"+strconv.Itoa(7030))
-			conn, err := net.DialUDP("udp", nil, &currentSensor.Addr)
+			timeBefore := time.Now()
+			addr, err := net.ResolveUDPAddr("udp4", currentSensor.Addr.IP.String()+":"+strconv.Itoa(currentSensor.DataPort))
+			conn, err := net.DialUDP("udp", nil, addr)
 			if err != nil {
-				log.Println("flap")
-				log.Fatal(err)
+				log.Printf("Could not create udp socket with address %v: %v\n", addr, err)
+				continue
+				//panic(err)
 			}
-			defer conn.Close()
 
-			log.Printf("Polling sensor with Addr %v\n", currentSensor.Addr)
+			log.Printf("Requesting data from sensor ID: %d & Addr: %v\n", currentSensor.Id, addr)
 			_, err = conn.Write(buf[0:])
 			if err != nil {
-				log.Println("bap")
-				log.Fatal(err)
+				log.Printf("Failed to request data from sensor ID: %d with Addr: %v\n", currentSensor.Id, addr)
+				continue
+				//panic(err)
 			}
 
 			//wait for data sent from sensors
 			var dataBuffer [MAX_LENGTH]byte
 			length, err := conn.Read(dataBuffer[0:])
 			if err != nil {
-				panic(err)
+				log.Printf("Failed to recieve data from sensor ID: %d with Addr: %v\n", currentSensor.Id, addr)
+				//panic(err)
+				continue
 			}
-			log.Printf("Data Recieved: %s\n", dataBuffer[0:length])
+			log.Printf("Data Recieved from sensor ID:%d: %s\n", currentSensor.Id, dataBuffer[0:length])
+			conn.Close()
+			log.Printf("RTT:%v\n", time.Since(timeBefore))
 		}
+		registeredSensors.mutex.RUnlock()
 	}
 }

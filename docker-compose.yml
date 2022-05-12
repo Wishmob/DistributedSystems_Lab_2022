@@ -6,6 +6,12 @@ services:
   sensor:
     build: ./sensor
     container_name: sensor
-
+    environment:
+      - ID=1
+  sensor2:
+    build: ./sensor
+    container_name: sensor2
+    environment:
+      - ID=2
 
 
