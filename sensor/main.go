@@ -17,8 +17,9 @@ type Socket struct {
 }
 
 const (
-	MAX_LENGTH  int    = 1024
-	SENSOR_TYPE string = "TMP"
+	REGISTRATION_LENGTH int    = 16
+	REQUEST_LENGTH      int    = 16
+	SENSOR_TYPE         string = "TMP"
 	//SENSOR_ID   int    = 1
 	DATA_PORT int = 7030
 )
@@ -43,19 +44,16 @@ func registerToGateway(socket Socket) error {
 	}
 	defer conn.Close()
 
-	sensorID, err := strconv.Atoi(os.Getenv("ID"))
-	if err != nil {
-		panic(err)
-	}
+	sensorID := os.Getenv("HOSTNAME")
 	//Sending registration request to gateway
-	request := fmt.Sprintf("%s|%d|%d|", SENSOR_TYPE, sensorID, DATA_PORT)
+	request := fmt.Sprintf("%s|%s|%d|", SENSOR_TYPE, sensorID, DATA_PORT)
 	_, err = conn.Write([]byte(request))
 	if err != nil {
 		return err
 	}
 
 	//check if registration was successfull
-	var buf [MAX_LENGTH]byte
+	var buf [REGISTRATION_LENGTH]byte
 	length, err := conn.Read(buf[0:])
 	if err != nil {
 		return err
@@ -93,12 +91,12 @@ func main() {
 //handleDataRequest replies with data to udp requests from the gateway
 func handleDataRequest(conn *net.UDPConn) {
 	for {
-		var buf [MAX_LENGTH]byte
+		var buf [REQUEST_LENGTH]byte
 		_, addr, err := conn.ReadFromUDP(buf[0:])
 		if err != nil {
 			panic(err)
 		}
-		log.Printf("Data Request recieved from %v\n", addr)
+		//log.Printf("Data Request recieved from %v\n", addr)
 		data := generateData()
 		_, err = conn.WriteToUDP([]byte(strconv.Itoa(data)), addr)
 		if err != nil {

@@ -18,24 +18,25 @@ const (
 )
 
 type Sensor struct {
-	Id       int
+	Id       string
 	Type     string
 	Addr     net.UDPAddr
 	DataPort int
 }
 
 const (
-	MAX_LENGTH int = 1024
+	MAX_LENGTH        int = 32
+	REQUEST_INTERVALL     = 3 * time.Millisecond //Time delay between requesting data from all sensors
 )
 
 type SensorCollection struct {
-	sensors map[int]Sensor
+	sensors map[string]Sensor
 	mutex   sync.RWMutex
 }
 
 func InitSensors() SensorCollection {
 	return SensorCollection{
-		sensors: make(map[int]Sensor),
+		sensors: make(map[string]Sensor),
 		mutex:   sync.RWMutex{},
 	}
 }
@@ -81,17 +82,14 @@ func listenForSensorRegistration(conn *net.UDPConn) {
 	for {
 		var buf [MAX_LENGTH]byte
 		length, addr, err := conn.ReadFromUDP(buf[0:])
-		log.Printf("Message recieved from %v with content: %s\n", addr, buf)
+		log.Printf("New sensor with Addr %v requests registraton: %s\n", addr, buf)
 		if err != nil {
 			panic(err)
 		}
 		sensorData := strings.Split(string(buf[:]), "|")
 		var sensor Sensor
 		sensor.Type = sensorData[0]
-		sensor.Id, err = strconv.Atoi(sensorData[1])
-		if err != nil {
-			panic(err)
-		}
+		sensor.Id = sensorData[1]
 		sensor.DataPort, err = strconv.Atoi(sensorData[2])
 		if err != nil {
 			panic(err)
@@ -108,14 +106,15 @@ func listenForSensorRegistration(conn *net.UDPConn) {
 		if err != nil {
 			panic(err)
 		}
-		log.Printf("sensor registriert : %v\n", sensor)
+		log.Printf("sensor registriert: %v total:%d\n", sensor, len(registeredSensors.sensors))
 	}
 }
 
 func pollRegisteredSensors() {
 	//Todo maybe start every request in separate go routine
 	for {
-		time.Sleep(3 * time.Millisecond) //Todo remove
+		time.Sleep(REQUEST_INTERVALL)
+		successfullRequests := 0
 		registeredSensors.mutex.RLock()
 		for _, currentSensor := range registeredSensors.sensors {
 			buf := [1]byte{1}
@@ -128,10 +127,10 @@ func pollRegisteredSensors() {
 				//panic(err)
 			}
 
-			log.Printf("Requesting data from sensor ID: %d & Addr: %v\n", currentSensor.Id, addr)
+			//log.Printf("Requesting data from sensor ID: %s & Addr: %v\n", currentSensor.Id, addr)
 			_, err = conn.Write(buf[0:])
 			if err != nil {
-				log.Printf("Failed to request data from sensor ID: %d with Addr: %v\n", currentSensor.Id, addr)
+				log.Printf("Failed to request data from sensor ID: %s with Addr: %v\n", currentSensor.Id, addr)
 				continue
 				//panic(err)
 			}
@@ -140,14 +139,16 @@ func pollRegisteredSensors() {
 			var dataBuffer [MAX_LENGTH]byte
 			length, err := conn.Read(dataBuffer[0:])
 			if err != nil {
-				log.Printf("Failed to recieve data from sensor ID: %d with Addr: %v\n", currentSensor.Id, addr)
+				log.Printf("Failed to recieve data from sensor ID: %s with Addr: %v\n", currentSensor.Id, addr)
 				//panic(err)
 				continue
 			}
-			log.Printf("Data Recieved from sensor ID:%d: %s\n", currentSensor.Id, dataBuffer[0:length])
+			log.Printf("Data Recieved from sensor ID:%s: %s\n", currentSensor.Id, dataBuffer[0:length])
+			successfullRequests++
 			conn.Close()
 			log.Printf("RTT:%v\n", time.Since(timeBefore))
 		}
+		log.Printf("Successfully requested data from %d out of total %d registered sensors\n", successfullRequests, len(registeredSensors.sensors))
 		registeredSensors.mutex.RUnlock()
 	}
 }
