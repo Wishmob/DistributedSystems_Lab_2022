@@ -1,9 +1,9 @@
 package main
 
 import (
-	"flag"
 	"log"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,6 +17,8 @@ const (
 	Brightness         = "BRT"
 )
 
+var TestLogger *log.Logger
+
 type Sensor struct {
 	Id       string
 	Type     string
@@ -26,12 +28,22 @@ type Sensor struct {
 
 const (
 	MAX_LENGTH        int = 32
-	REQUEST_INTERVALL     = 3 * time.Millisecond //Time delay between requesting data from all sensors
+	REQUEST_INTERVALL     = 3 * time.Second //Time delay between requesting data from all sensors
+	REGISTRATION_PORT     = 5000
 )
 
 type SensorCollection struct {
 	sensors map[string]Sensor
 	mutex   sync.RWMutex
+}
+
+func init() {
+	file, err := os.OpenFile("test.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	TestLogger = log.New(file, "TEST: ", log.Ldate|log.Ltime|log.Lshortfile)
 }
 
 func InitSensors() SensorCollection {
@@ -44,11 +56,8 @@ func InitSensors() SensorCollection {
 var registeredSensors SensorCollection
 
 func main() {
-	log.Println("Listening on port 5000 for udp packets...")
-	var port int
-	flag.IntVar(&port, "port", 5000, "port the iot_gateway should listen on for udp packets")
 
-	addr, err := net.ResolveUDPAddr("udp4", ":"+strconv.Itoa(port))
+	addr, err := net.ResolveUDPAddr("udp4", ":"+strconv.Itoa(REGISTRATION_PORT))
 	if err != nil {
 		panic(err)
 	}
@@ -79,6 +88,7 @@ func main() {
 }
 
 func listenForSensorRegistration(conn *net.UDPConn) {
+	log.Printf("Listening on port %d for sensor registrations...\n", REGISTRATION_PORT)
 	for {
 		var buf [MAX_LENGTH]byte
 		length, addr, err := conn.ReadFromUDP(buf[0:])
@@ -97,7 +107,6 @@ func listenForSensorRegistration(conn *net.UDPConn) {
 		sensor.Addr = *addr
 
 		//Add new sensor to map
-		//TODO add mutex
 		registeredSensors.mutex.Lock()
 		registeredSensors.sensors[sensor.Id] = sensor
 		registeredSensors.mutex.Unlock()
@@ -147,6 +156,7 @@ func pollRegisteredSensors() {
 			successfullRequests++
 			conn.Close()
 			log.Printf("RTT:%v\n", time.Since(timeBefore))
+			TestLogger.Printf("RTT:%v\n", time.Since(timeBefore))
 		}
 		log.Printf("Successfully requested data from %d out of total %d registered sensors\n", successfullRequests, len(registeredSensors.sensors))
 		registeredSensors.mutex.RUnlock()
