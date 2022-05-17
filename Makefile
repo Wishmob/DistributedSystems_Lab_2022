@@ -1,6 +1,4 @@
 start: fmt
-	docker compose up -d
-	docker-compose logs -f > ./logs/logs.log 2>&1 &
 	docker compose up
 
 build: fmt
@@ -11,6 +9,8 @@ start25:
 	docker compose up --build --scale sensor=25
 start50:
 	docker compose up --build --scale sensor=50
+start100:
+	docker compose up --build --scale sensor=100
 fmt:
 	gofmt -s -w ./..
 clean:

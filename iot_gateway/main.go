@@ -28,7 +28,7 @@ type Sensor struct {
 
 const (
 	MAX_LENGTH        int = 32
-	REQUEST_INTERVALL     = 3 * time.Second //Time delay between requesting data from all sensors
+	REQUEST_INTERVAL      = 3 * time.Second //Time delay between requesting data from all sensors
 	REGISTRATION_PORT     = 5000
 )
 
@@ -38,12 +38,13 @@ type SensorCollection struct {
 }
 
 func init() {
-	file, err := os.OpenFile("test.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	file, err := os.OpenFile("/logs/test.log", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
-	TestLogger = log.New(file, "TEST: ", log.Ldate|log.Ltime|log.Lshortfile)
+	//TestLogger = log.New(file, "TEST: ", log.Ldate|log.Ltime|log.Lshortfile)
+	TestLogger = log.New(file, "", 0)
 }
 
 func InitSensors() SensorCollection {
@@ -56,7 +57,6 @@ func InitSensors() SensorCollection {
 var registeredSensors SensorCollection
 
 func main() {
-
 	addr, err := net.ResolveUDPAddr("udp4", ":"+strconv.Itoa(REGISTRATION_PORT))
 	if err != nil {
 		panic(err)
@@ -121,8 +121,11 @@ func listenForSensorRegistration(conn *net.UDPConn) {
 
 func pollRegisteredSensors() {
 	//Todo maybe start every request in separate go routine
+	TestLogger.Printf("RequestInterval: %v\n", REQUEST_INTERVAL)
+	TestLogger.Printf("RTT\n") //write column names to log file
 	for {
-		time.Sleep(REQUEST_INTERVALL)
+		var rtts []time.Duration
+		time.Sleep(REQUEST_INTERVAL)
 		successfullRequests := 0
 		registeredSensors.mutex.RLock()
 		for _, currentSensor := range registeredSensors.sensors {
@@ -146,7 +149,7 @@ func pollRegisteredSensors() {
 
 			//wait for data sent from sensors
 			var dataBuffer [MAX_LENGTH]byte
-			length, err := conn.Read(dataBuffer[0:])
+			length, err := conn.Read(dataBuffer[0:]) //Todo add controlled timout?
 			if err != nil {
 				log.Printf("Failed to recieve data from sensor ID: %s with Addr: %v\n", currentSensor.Id, addr)
 				//panic(err)
@@ -155,10 +158,44 @@ func pollRegisteredSensors() {
 			log.Printf("Data Recieved from sensor ID:%s: %s\n", currentSensor.Id, dataBuffer[0:length])
 			successfullRequests++
 			conn.Close()
-			log.Printf("RTT:%v\n", time.Since(timeBefore))
-			TestLogger.Printf("RTT:%v\n", time.Since(timeBefore))
+			rtt := time.Since(timeBefore)
+			log.Printf("RTT:%v\n", rtt)
+			//TestLogger.Printf("%v\n", rtt) //print rtt
+			rtts = append(rtts, rtt)
 		}
-		log.Printf("Successfully requested data from %d out of total %d registered sensors\n", successfullRequests, len(registeredSensors.sensors))
+		TestLogger.Printf("Successful Requests: %d out of total %d registered sensors with avgRTT: %v minRTT: %v maxRTT: %v\n", successfullRequests, len(registeredSensors.sensors), durationAvg(&rtts), durationMinimum(&rtts), durationMaximum(&rtts))
+		log.Printf("Successfully requested data from %d out of total %d registered sensors with an avg RTT of: %v\n", successfullRequests, len(registeredSensors.sensors), time.Duration(durationAvg(&rtts)))
 		registeredSensors.mutex.RUnlock()
 	}
+}
+
+func durationAvg(durations *[]time.Duration) time.Duration {
+	var totalTime int64 = 0
+	//todo save max and min rtt
+	//TestLogger.Printf("totalRTT_bef: %v", totalTime)
+	for _, dur := range *durations {
+		totalTime += int64(dur)
+	}
+	//TestLogger.Printf("totalRTT: %d , total durations: %d, avg: %v", totalTime, int64(len(*durations)), time.Duration(totalTime/int64(len(*durations))))
+	return time.Duration(totalTime / int64(len(*durations)))
+}
+
+func durationMaximum(durations *[]time.Duration) time.Duration {
+	var maxTime int64 = 0
+	for _, dur := range *durations {
+		if int64(dur) > maxTime {
+			maxTime = int64(dur)
+		}
+	}
+	return time.Duration(maxTime)
+}
+
+func durationMinimum(durations *[]time.Duration) time.Duration {
+	var minTime int64 = int64((*durations)[0])
+	for _, dur := range *durations {
+		if int64(dur) < minTime {
+			minTime = int64(dur)
+		}
+	}
+	return time.Duration(minTime)
 }
