@@ -15,7 +15,7 @@ RUN mkdir /logs
 
 # Run command as described:
 # go build will build an executable file named iot_gateway in the current directory
-RUN go build -o iot_gateway .
+RUN go build -o iot_gateway ./main
 
 # Run the iot_gateway executable
 CMD [ "/app/iot_gateway" ]

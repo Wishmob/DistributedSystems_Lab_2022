@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"vs_praktikum_BreiterSchandl_Di2x/iot_gateway/httpInterface"
 )
 
 //The Different sensor types //currently not used
@@ -132,14 +133,17 @@ func pollRegisteredSensors() {
 	TestLogger.Printf("Gateway Uptime, Successful Requests, total registered sensors, avgRTT, minRTT, maxRTT\n") //write column names to log file
 	for {
 		var rtts []time.Duration
+
 		time.Sleep(RequestInterval)
 		if len(registeredSensors.sensors) == 0 {
 			continue
 		}
+		dataPackage := httpInterface.NewSensorDataPackage()
+		dataPackage.SensorCount = len(registeredSensors.sensors)
+
 		successfulRequests := 0
 		registeredSensors.mutex.RLock()
 		for _, currentSensor := range registeredSensors.sensors {
-			buf := [1]byte{1}
 			timeBefore := time.Now()
 			addr, err := net.ResolveUDPAddr("udp4", currentSensor.Addr.IP.String()+":"+strconv.Itoa(currentSensor.DataPort))
 			conn, err := net.DialUDP("udp", nil, addr)
@@ -150,7 +154,7 @@ func pollRegisteredSensors() {
 			}
 
 			//log.Printf("Requesting data from sensor ID: %s & Addr: %v\n", currentSensor.Id, addr)
-			_, err = conn.Write(buf[0:])
+			_, err = conn.Write([]byte{1})
 			if err != nil {
 				log.Printf("Failed to request data from sensor ID: %s with Addr: %v\n", currentSensor.Id, addr)
 				continue
@@ -174,10 +178,12 @@ func pollRegisteredSensors() {
 			log.Printf("RTT:%v\n", rtt)
 			//TestLogger.Printf("%v\n", rtt) //print rtt
 			rtts = append(rtts, rtt)
+			dataPackage.Data[currentSensor.Id] = string(dataBuffer[0:length])
 		}
 		TestLogger.Printf("%v, %d, %d, %v, %v, %v\n", uptime(), successfulRequests, len(registeredSensors.sensors), durationAvg(&rtts), durationMinimum(&rtts), durationMaximum(&rtts))
 		log.Printf("Successfully requested data from %d out of total %d registered sensors with an avgRTT: %v minRTT: %v maxRTT: %v\n", successfulRequests, len(registeredSensors.sensors), durationAvg(&rtts), durationMinimum(&rtts), durationMaximum(&rtts))
 		registeredSensors.mutex.RUnlock()
+		httpInterface.SendDataToCloudServer(dataPackage)
 	}
 }
 
