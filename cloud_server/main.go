@@ -31,6 +31,7 @@ func main() {
 	//sensorData = make([]SensorDataPackage, 0)
 	//Create the default mux
 	mux := http.NewServeMux()
+	mux.HandleFunc("/", viewDataHandler)
 	mux.HandleFunc("/post-data", postDataHandler)
 
 	//Create the server.
@@ -64,4 +65,22 @@ func postDataHandler(w http.ResponseWriter, req *http.Request) {
 		fmt.Fprintf(w, "Only GET and POST methods are supported for this url.")
 
 	}
+}
+
+func viewDataHandler(w http.ResponseWriter, req *http.Request) {
+	//Todo display existing sensor data in html form
+	//	html := `
+	//<!DOCTYPE html>
+	//<html lang="de">
+	//<head>
+	//    <meta charset="UTF-8"/>
+	//    <title>Sensor Data</title>
+	//</head>
+	//<body>
+	//<h1>hello</h1>
+	//</body>
+	//</html>`
+	//	data := []byte(html)
+	//	w.Write(data)
+	http.ServeFile(w, req, "index.html")
 }

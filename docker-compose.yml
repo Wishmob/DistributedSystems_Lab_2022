@@ -14,6 +14,8 @@ services:
   cloud_server:
     build: ./cloud_server
     container_name: cloud_server
+    ports:
+      - "8080:8080"
     environment:
       - TZ=Europe/Berlin
 
