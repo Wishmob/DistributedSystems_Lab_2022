@@ -6,7 +6,7 @@ services:
     environment:
       - TZ=Europe/Berlin
     volumes:
-      - /Users/alexbreiter/Dateien/Studium_h-da/Semester4/VerteilteSysteme/Praktikum/Di2x-A/logs:/logs
+      - ./logs:/logs
   sensor:
     build: ./sensor
     environment:
