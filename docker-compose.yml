@@ -11,6 +11,10 @@ services:
     build: ./sensor
     environment:
       - TZ=Europe/Berlin
-
+  cloud_server:
+    build: ./cloud_server
+    container_name: cloud_server
+    environment:
+      - TZ=Europe/Berlin
 
 
