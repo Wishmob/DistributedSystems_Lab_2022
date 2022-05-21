@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-//The Different sensor types
+//The Different sensor types //currently not used
 const (
 	Temperature string = "TMP"
 	Humidity           = "HUM"
@@ -23,13 +23,14 @@ type Sensor struct {
 	Id       string
 	Type     string
 	Addr     net.UDPAddr
-	DataPort int
+	DataPort int //The udp port on which the sensor will listen for data requests
 }
 
 const (
-	MAX_LENGTH        int = 32
-	REQUEST_INTERVAL      = 3 * time.Second //Time delay between requesting data from all sensors
-	REGISTRATION_PORT     = 5000
+	ReadBufferSize   int = 32              //The size of the buffers used to read from the udp sockets
+	RequestInterval      = 1 * time.Second //Time delay between requesting data from all sensors
+	RequestDelay         = 3 * time.Second
+	RegistrationPort     = 5000 //Port on which the gateway is listening for new sensors
 )
 
 type SensorCollection struct {
@@ -37,12 +38,18 @@ type SensorCollection struct {
 	mutex   sync.RWMutex
 }
 
+var startTime time.Time
+
+func uptime() time.Duration {
+	return time.Since(startTime)
+}
+
 func init() {
+	startTime = time.Now()
 	file, err := os.OpenFile("/logs/test.log", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
-		panic(err)
+		log.Printf("log directory could not be created. Try creating it manually: %v\n", err)
 	}
-
 	//TestLogger = log.New(file, "TEST: ", log.Ldate|log.Ltime|log.Lshortfile)
 	TestLogger = log.New(file, "", 0)
 }
@@ -57,7 +64,7 @@ func InitSensors() SensorCollection {
 var registeredSensors SensorCollection
 
 func main() {
-	addr, err := net.ResolveUDPAddr("udp4", ":"+strconv.Itoa(REGISTRATION_PORT))
+	addr, err := net.ResolveUDPAddr("udp4", ":"+strconv.Itoa(RegistrationPort))
 	if err != nil {
 		panic(err)
 	}
@@ -78,7 +85,7 @@ func main() {
 	}()
 
 	wg.Add(1)
-	time.Sleep(3 * time.Second) //Todo remove
+	time.Sleep(RequestDelay) //Give sensors time to register before starting to request data
 	go func() {
 		defer wg.Done()
 		pollRegisteredSensors()
@@ -88,9 +95,9 @@ func main() {
 }
 
 func listenForSensorRegistration(conn *net.UDPConn) {
-	log.Printf("Listening on port %d for sensor registrations...\n", REGISTRATION_PORT)
+	log.Printf("Listening on port %d for sensor registrations...\n", RegistrationPort)
 	for {
-		var buf [MAX_LENGTH]byte
+		var buf [ReadBufferSize]byte
 		length, addr, err := conn.ReadFromUDP(buf[0:])
 		log.Printf("New sensor with Addr %v requests registraton: %s\n", addr, buf)
 		if err != nil {
@@ -120,13 +127,16 @@ func listenForSensorRegistration(conn *net.UDPConn) {
 }
 
 func pollRegisteredSensors() {
-	//Todo maybe start every request in separate go routine
-	TestLogger.Printf("RequestInterval: %v\n", REQUEST_INTERVAL)
-	TestLogger.Printf("RTT\n") //write column names to log file
+	//Todo maybe start every request in separate go routine?
+	TestLogger.Printf("RequestInterval: %v\n", RequestInterval)
+	TestLogger.Printf("Gateway Uptime, Successful Requests, total registered sensors, avgRTT, minRTT, maxRTT\n") //write column names to log file
 	for {
 		var rtts []time.Duration
-		time.Sleep(REQUEST_INTERVAL)
-		successfullRequests := 0
+		time.Sleep(RequestInterval)
+		if len(registeredSensors.sensors) == 0 {
+			continue
+		}
+		successfulRequests := 0
 		registeredSensors.mutex.RLock()
 		for _, currentSensor := range registeredSensors.sensors {
 			buf := [1]byte{1}
@@ -148,39 +158,44 @@ func pollRegisteredSensors() {
 			}
 
 			//wait for data sent from sensors
-			var dataBuffer [MAX_LENGTH]byte
-			length, err := conn.Read(dataBuffer[0:]) //Todo add controlled timout?
+			var dataBuffer [ReadBufferSize]byte
+			conn.SetDeadline(time.Now().Add(2 * time.Second))
+			length, err := conn.Read(dataBuffer[0:])
 			if err != nil {
 				log.Printf("Failed to recieve data from sensor ID: %s with Addr: %v\n", currentSensor.Id, addr)
 				//panic(err)
 				continue
 			}
+			conn.SetDeadline(time.Time{})
 			log.Printf("Data Recieved from sensor ID:%s: %s\n", currentSensor.Id, dataBuffer[0:length])
-			successfullRequests++
+			successfulRequests++
 			conn.Close()
 			rtt := time.Since(timeBefore)
 			log.Printf("RTT:%v\n", rtt)
 			//TestLogger.Printf("%v\n", rtt) //print rtt
 			rtts = append(rtts, rtt)
 		}
-		TestLogger.Printf("Successful Requests: %d out of total %d registered sensors with avgRTT: %v minRTT: %v maxRTT: %v\n", successfullRequests, len(registeredSensors.sensors), durationAvg(&rtts), durationMinimum(&rtts), durationMaximum(&rtts))
-		log.Printf("Successfully requested data from %d out of total %d registered sensors with an avg RTT of: %v\n", successfullRequests, len(registeredSensors.sensors), time.Duration(durationAvg(&rtts)))
+		TestLogger.Printf("%v, %d, %d, %v, %v, %v\n", uptime(), successfulRequests, len(registeredSensors.sensors), durationAvg(&rtts), durationMinimum(&rtts), durationMaximum(&rtts))
+		log.Printf("Successfully requested data from %d out of total %d registered sensors with an avgRTT: %v minRTT: %v maxRTT: %v\n", successfulRequests, len(registeredSensors.sensors), durationAvg(&rtts), durationMinimum(&rtts), durationMaximum(&rtts))
 		registeredSensors.mutex.RUnlock()
 	}
 }
 
 func durationAvg(durations *[]time.Duration) time.Duration {
+	if len(*durations) < 1 {
+		return 0
+	}
 	var totalTime int64 = 0
-	//todo save max and min rtt
-	//TestLogger.Printf("totalRTT_bef: %v", totalTime)
 	for _, dur := range *durations {
 		totalTime += int64(dur)
 	}
-	//TestLogger.Printf("totalRTT: %d , total durations: %d, avg: %v", totalTime, int64(len(*durations)), time.Duration(totalTime/int64(len(*durations))))
 	return time.Duration(totalTime / int64(len(*durations)))
 }
 
 func durationMaximum(durations *[]time.Duration) time.Duration {
+	if len(*durations) < 1 {
+		return 0
+	}
 	var maxTime int64 = 0
 	for _, dur := range *durations {
 		if int64(dur) > maxTime {
@@ -191,7 +206,10 @@ func durationMaximum(durations *[]time.Duration) time.Duration {
 }
 
 func durationMinimum(durations *[]time.Duration) time.Duration {
-	var minTime int64 = int64((*durations)[0])
+	if len(*durations) < 1 {
+		return 0
+	}
+	var minTime = int64((*durations)[0])
 	for _, dur := range *durations {
 		if int64(dur) < minTime {
 			minTime = int64(dur)
