@@ -180,7 +180,7 @@ func pollRegisteredSensors() {
 			rtts = append(rtts, rtt)
 			dataPackage.Data[currentSensor.Id] = string(dataBuffer[0:length])
 		}
-		TestLogger.Printf("%v, %d, %d, %v, %v, %v\n", uptime(), successfulRequests, len(registeredSensors.sensors), durationAvg(&rtts), durationMinimum(&rtts), durationMaximum(&rtts))
+		TestLogger.Printf("%v, %d, %d, %v, %v, %v\n", int(uptime().Seconds()), successfulRequests, len(registeredSensors.sensors), durationAvg(&rtts).Microseconds(), durationMinimum(&rtts).Microseconds(), durationMaximum(&rtts).Microseconds())
 		log.Printf("Successfully requested data from %d out of total %d registered sensors with an avgRTT: %v minRTT: %v maxRTT: %v\n", successfulRequests, len(registeredSensors.sensors), durationAvg(&rtts), durationMinimum(&rtts), durationMaximum(&rtts))
 		registeredSensors.mutex.RUnlock()
 		httpInterface.SendDataToCloudServer(dataPackage)
