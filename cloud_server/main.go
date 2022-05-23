@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"sync"
 )
 
 const (
@@ -24,9 +27,22 @@ func NewSensorDataPackage() SensorDataPackage {
 	}
 }
 
-var sensorData []SensorDataPackage
+type SensorDataCollection struct {
+	SensorData []SensorDataPackage
+	Mutex      sync.RWMutex
+}
+
+func NewSensorDataCollection() SensorDataCollection {
+	return SensorDataCollection{
+		SensorData: make([]SensorDataPackage, 0),
+		Mutex:      sync.RWMutex{},
+	}
+}
+
+var sensorDataCollection SensorDataCollection
 
 func main() {
+	sensorDataCollection = NewSensorDataCollection()
 
 	//sensorData = make([]SensorDataPackage, 0)
 	//Create the default mux
@@ -39,6 +55,9 @@ func main() {
 		Addr:    fmt.Sprintf(":%d", Port),
 		Handler: mux,
 	}
+	//TODO fix
+	//fs := http.FileServer(http.Dir("./static"))
+	//mux.PathPrefix("/").Handler(http.StripPrefix("/static/", fs))
 	log.Printf("Listening on port %d for http requests...\n", Port)
 	s.ListenAndServe()
 }
@@ -59,7 +78,9 @@ func postDataHandler(w http.ResponseWriter, req *http.Request) {
 		if err != nil {
 			panic(err)
 		}
-		sensorData = append(sensorData, sensorDataPackage)
+		sensorDataCollection.Mutex.Lock()
+		sensorDataCollection.SensorData = append(sensorDataCollection.SensorData, sensorDataPackage)
+		sensorDataCollection.Mutex.Unlock()
 		log.Printf("recieved data:%v", sensorDataPackage)
 	default:
 		fmt.Fprintf(w, "Only GET and POST methods are supported for this url.")
@@ -82,5 +103,28 @@ func viewDataHandler(w http.ResponseWriter, req *http.Request) {
 	//</html>`
 	//	data := []byte(html)
 	//	w.Write(data)
-	http.ServeFile(w, req, "index.html")
+	//http.ServeFile(w, req, "index.html")
+	RenderTemplate(w, req)
+}
+
+func RenderTemplate(w http.ResponseWriter, req *http.Request) {
+	pathToTemplate := fmt.Sprintf("./templates/%s", "index.tmpl")
+	t, err := template.New("index.tmpl").ParseFiles(pathToTemplate)
+	if err != nil {
+		log.Println(err)
+
+	}
+
+	buf := new(bytes.Buffer)
+	sensorDataCollection.Mutex.RLock()
+	err = t.Execute(buf, sensorDataCollection.SensorData)
+	sensorDataCollection.Mutex.RUnlock()
+	if err != nil {
+		log.Println(err)
+	}
+	_, err = buf.WriteTo(w)
+	if err != nil {
+		log.Println("error writing template to browser", err)
+	}
+
 }

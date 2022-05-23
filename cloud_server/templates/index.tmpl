@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" type="text/css" href="/static/style.css" media="screen" />
+    <meta charset="UTF-8">
+    <title>Sensor Data</title>
+</head>
+<body>
+<h1>Data from Sensors</h1>
+{{range $index, $element := .}}
+<h2>{{$index}}</h2>
+{{$sensorDataPackage := $element.Data }}
+{{range $key, $value := $sensorDataPackage}}
+<p>{{ $key }}'s value is: {{ $value }}</p>
+{{end}}
+{{end}}
+</body>
+</html>
