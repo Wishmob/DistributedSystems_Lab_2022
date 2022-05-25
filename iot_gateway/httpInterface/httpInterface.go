@@ -35,9 +35,11 @@ func SendDataToCloudServer(data SensorDataPackage) {
 	}
 	//log.Printf("Sending data to cloud server at %s\n", ips[0])
 	addr := fmt.Sprintf("http://%s:8080/post-data", ips[0])
-	_, err = http.Post(addr, "application/json",
+	resp, err := http.Post(addr, "application/json",
 		bytes.NewBuffer(json_data))
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Printf("Status: %s\n", resp.Status)
+
 }

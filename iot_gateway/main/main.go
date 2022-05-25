@@ -18,7 +18,10 @@ const (
 	Brightness         = "BRT"
 )
 
-var TestLogger *log.Logger
+var (
+	TestLoggerP1 *log.Logger
+	TestLoggerP2 *log.Logger
+)
 
 type Sensor struct {
 	Id       string
@@ -41,18 +44,23 @@ type SensorCollection struct {
 
 var startTime time.Time
 
-func uptime() time.Duration {
+func Uptime() time.Duration {
 	return time.Since(startTime)
 }
 
 func init() {
 	startTime = time.Now()
-	file, err := os.OpenFile("/logs/test.log", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0666)
+	logfileP1, err := os.OpenFile("/logs/P1RttLog.log", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		log.Printf("log directory could not be created. Try creating it manually: %v\n", err)
 	}
-	//TestLogger = log.New(file, "TEST: ", log.Ldate|log.Ltime|log.Lshortfile)
-	TestLogger = log.New(file, "", 0)
+	//TestLoggerP1 = log.New(logfileP1, "TEST: ", log.Ldate|log.Ltime|log.Lshortfile)
+	TestLoggerP1 = log.New(logfileP1, "", 0)
+	logfileP2, err := os.OpenFile("/logs/P2RttLog.log", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		log.Printf("log directory could not be created. Try creating it manually: %v\n", err)
+	}
+	TestLoggerP2 = log.New(logfileP2, "", 0)
 }
 
 func InitSensors() SensorCollection {
@@ -129,8 +137,11 @@ func listenForSensorRegistration(conn *net.UDPConn) {
 
 func pollRegisteredSensors() {
 	//Todo maybe start every request in separate go routine?
-	TestLogger.Printf("RequestInterval: %v\n", RequestInterval)
-	TestLogger.Printf("Gateway Uptime, Successful Requests, total registered sensors, avgRTT, minRTT, maxRTT\n") //write column names to log file
+	TestLoggerP1.Printf("RequestInterval: %v\n", RequestInterval)
+	TestLoggerP1.Printf("Gateway Uptime, Successful Requests, total registered sensors, avgRTT, minRTT, maxRTT\n") //write column names to log file
+	TestLoggerP2.Printf("RequestInterval: %v\n", RequestInterval)
+	TestLoggerP2.Printf("Gateway Uptime, Sensor count, RTT\n") //write column names to log file
+
 	for {
 		var rtts []time.Duration
 
@@ -176,14 +187,18 @@ func pollRegisteredSensors() {
 			conn.Close()
 			rtt := time.Since(timeBefore)
 			log.Printf("RTT:%v\n", rtt)
-			//TestLogger.Printf("%v\n", rtt) //print rtt
+			//TestLoggerP1.Printf("%v\n", rtt) //print rtt
 			rtts = append(rtts, rtt)
 			dataPackage.Data[currentSensor.Id] = string(dataBuffer[0:length])
 		}
-		TestLogger.Printf("%v, %d, %d, %v, %v, %v\n", int(uptime().Seconds()), successfulRequests, len(registeredSensors.sensors), durationAvg(&rtts).Microseconds(), durationMinimum(&rtts).Microseconds(), durationMaximum(&rtts).Microseconds())
+		TestLoggerP1.Printf("%v, %d, %d, %v, %v, %v\n", int(Uptime().Seconds()), successfulRequests, len(registeredSensors.sensors), durationAvg(&rtts).Microseconds(), durationMinimum(&rtts).Microseconds(), durationMaximum(&rtts).Microseconds())
 		log.Printf("Successfully requested data from %d out of total %d registered sensors with an avgRTT: %v minRTT: %v maxRTT: %v\n", successfulRequests, len(registeredSensors.sensors), durationAvg(&rtts), durationMinimum(&rtts), durationMaximum(&rtts))
 		registeredSensors.mutex.RUnlock()
+		timeBeforePost := time.Now()
 		httpInterface.SendDataToCloudServer(dataPackage)
+		rttPost := time.Since(timeBeforePost)
+		TestLoggerP2.Printf("%v, %d, %v\n", int(Uptime().Seconds()), len(registeredSensors.sensors), rttPost)
+
 	}
 }
 

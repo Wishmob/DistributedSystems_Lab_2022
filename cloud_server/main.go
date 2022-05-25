@@ -70,17 +70,22 @@ func postDataHandler(w http.ResponseWriter, req *http.Request) {
 	case "POST":
 		body, err := ioutil.ReadAll(req.Body)
 		if err != nil {
-			panic(err)
+			log.Println(err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
 		}
 		defer req.Body.Close()
 		sensorDataPackage := NewSensorDataPackage()
 		err = json.Unmarshal(body, &sensorDataPackage)
 		if err != nil {
-			panic(err)
+			log.Println(err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
 		}
 		sensorDataCollection.Mutex.Lock()
 		sensorDataCollection.SensorData = append(sensorDataCollection.SensorData, sensorDataPackage)
 		sensorDataCollection.Mutex.Unlock()
+		w.WriteHeader(http.StatusOK)
 		log.Printf("recieved data:%v", sensorDataPackage)
 	default:
 		fmt.Fprintf(w, "Only GET and POST methods are supported for this url.")
