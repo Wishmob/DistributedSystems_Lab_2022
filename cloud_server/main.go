@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"html/template"
 	"io/ioutil"
 	"log"
@@ -23,7 +24,7 @@ const (
 
 type SensorDataPackage struct {
 	Timestamp   time.Time         `json:"timestamp"`
-	SensorCount int               `json:"sensorcount"`
+	SensorCount int32             `json:"sensorcount"`
 	Data        map[string]string `json:"data"`
 }
 
@@ -151,9 +152,23 @@ func grpcTest() {
 	// Contact the server and print out its response.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	r, err := c.Create(ctx, &proto.SensorDataPackage{})
+	ts := time.Now()
+	tsPB := timestamppb.New(ts)
+	testSdp := NewSensorDataPackage()
+	testSdp.Timestamp = ts
+	testSdp.Data["123"] = "456"
+	testSdp.SensorCount = 1
+	r, err := c.Create(ctx, &proto.SensorDataPackage{Timestamp: tsPB, Data: testSdp.Data, SensorCount: testSdp.SensorCount})
+
 	if err != nil {
 		log.Fatalf("could not create: %v", err)
 	}
 	log.Printf("response: %v", r.GetSuccess())
+	res, err := c.Read(ctx, &proto.IDSensorDataPackageTimestamp{Timestamp: tsPB})
+
+	if err != nil {
+		log.Fatalf("could not create: %v", err)
+	}
+
+	log.Printf("response: %v,%v,%v", res.GetTimestamp(), res.GetSensorCount(), res.GetData())
 }

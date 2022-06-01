@@ -12,7 +12,7 @@ import (
 
 type SensorDataPackage struct {
 	Timestamp   time.Time         `json:"timestamp"`
-	SensorCount int               `json:"sensorcount"`
+	SensorCount int32             `json:"sensorcount"`
 	Data        map[string]string `json:"data"`
 }
 

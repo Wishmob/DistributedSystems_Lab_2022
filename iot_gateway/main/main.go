@@ -150,7 +150,7 @@ func pollRegisteredSensors() {
 			continue
 		}
 		dataPackage := httpInterface.NewSensorDataPackage()
-		dataPackage.SensorCount = len(registeredSensors.sensors)
+		dataPackage.SensorCount = int32(len(registeredSensors.sensors))
 
 		successfulRequests := 0
 		registeredSensors.mutex.RLock()

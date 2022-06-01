@@ -9,7 +9,7 @@ import "google/protobuf/timestamp.proto";
 message SensorDataPackage {
   google.protobuf.Timestamp timestamp = 1;
   int32 sensorCount = 2;
-  map<string, string> map_field = 3; //map<key_type, value_type> map_field = N;
+  map<string, string> data = 3; //map<key_type, value_type> map_field = N;
 }
 
 message Response {
