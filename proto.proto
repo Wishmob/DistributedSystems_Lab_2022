@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package proto; //name of the mpdule which is created automatically by protoc compiler
+
+option go_package = "../proto";
+
+import "google/protobuf/timestamp.proto";
+
+message SensorDataPackage {
+  google.protobuf.Timestamp timestamp = 1;
+  int32 sensorCount = 2;
+  map<string, string> map_field = 3; //map<key_type, value_type> map_field = N;
+}
+
+message Response {
+  bool success = 1;
+}
+
+message IDSensorDataPackageTimestamp {
+  google.protobuf.Timestamp timestamp = 1;
+}
+
+service DatabaseService{
+  rpc Create(SensorDataPackage) returns (Response);
+  rpc Read(IDSensorDataPackageTimestamp) returns (SensorDataPackage);
+  rpc Update(SensorDataPackage) returns (Response);
+  rpc Delete(IDSensorDataPackageTimestamp) returns (Response);
+}
+
+//folder structure: root with proto file in it
+//run command from folder of module:
+// protoc --go-grpc_out=proto --proto_path=../ ../proto.proto
+// and
+// protoc --go_out=proto --proto_path=../ ../proto.proto
+// + those two for every module:
+// go get -u google.golang.org/grpc
+// go install google.golang.org/protobuf/cmd/protoc-gen-go@latest

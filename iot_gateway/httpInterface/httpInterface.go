@@ -7,15 +7,18 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"time"
 )
 
 type SensorDataPackage struct {
+	Timestamp   time.Time         `json:"timestamp"`
 	SensorCount int               `json:"sensorcount"`
 	Data        map[string]string `json:"data"`
 }
 
 func NewSensorDataPackage() SensorDataPackage {
 	return SensorDataPackage{
+		Timestamp:   time.Now(),
 		SensorCount: 0,
 		Data:        make(map[string]string),
 	}

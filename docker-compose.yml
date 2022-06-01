@@ -18,5 +18,9 @@ services:
       - "8080:8080"
     environment:
       - TZ=Europe/Berlin
-
+  database:
+    build: ./database
+    container_name: database
+    environment:
+      - TZ=Europe/Berlin
 

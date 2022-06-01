@@ -2,13 +2,19 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"html/template"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"sync"
+	"time"
+	"vs_praktikum_BreiterSchandl_Di2x/cloud_server/proto"
 )
 
 const (
@@ -16,12 +22,14 @@ const (
 )
 
 type SensorDataPackage struct {
+	Timestamp   time.Time         `json:"timestamp"`
 	SensorCount int               `json:"sensorcount"`
 	Data        map[string]string `json:"data"`
 }
 
 func NewSensorDataPackage() SensorDataPackage {
 	return SensorDataPackage{
+		Timestamp:   time.Now(),
 		SensorCount: 0,
 		Data:        make(map[string]string),
 	}
@@ -42,6 +50,9 @@ func NewSensorDataCollection() SensorDataCollection {
 var sensorDataCollection SensorDataCollection
 
 func main() {
+
+	grpcTest()
+	log.Printf("dfghjkkjhgfvbnm,nbvbnm,mnbbnm,mnbvbnm,mnbvbnm,mnbvbnm,mnbnm,mnbvbnm,mnbvbnm")
 	sensorDataCollection = NewSensorDataCollection()
 
 	//sensorData = make([]SensorDataPackage, 0)
@@ -60,6 +71,7 @@ func main() {
 	//mux.PathPrefix("/").Handler(http.StripPrefix("/static/", fs))
 	log.Printf("Listening on port %d for http requests...\n", Port)
 	s.ListenAndServe()
+
 }
 
 func postDataHandler(w http.ResponseWriter, req *http.Request) {
@@ -94,24 +106,11 @@ func postDataHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func viewDataHandler(w http.ResponseWriter, req *http.Request) {
-	//Todo display existing sensor data in html form
-	//	html := `
-	//<!DOCTYPE html>
-	//<html lang="de">
-	//<head>
-	//    <meta charset="UTF-8"/>
-	//    <title>Sensor Data</title>
-	//</head>
-	//<body>
-	//<h1>hello</h1>
-	//</body>
-	//</html>`
-	//	data := []byte(html)
-	//	w.Write(data)
-	//http.ServeFile(w, req, "index.html")
+	//display existing sensor data in html form
 	RenderTemplate(w, req)
 }
 
+//RenderTemplate renders hardcoded template and data
 func RenderTemplate(w http.ResponseWriter, req *http.Request) {
 	pathToTemplate := fmt.Sprintf("./templates/%s", "index.tmpl")
 	t, err := template.New("index.tmpl").ParseFiles(pathToTemplate)
@@ -132,4 +131,29 @@ func RenderTemplate(w http.ResponseWriter, req *http.Request) {
 		log.Println("error writing template to browser", err)
 	}
 
+}
+
+func grpcTest() {
+	time.Sleep(3 * time.Second)
+	ips, err := net.LookupIP("database")
+	if err != nil {
+		log.Println("Database server could not be found.")
+		return
+	}
+	addr := fmt.Sprintf("%s:40401", ips[0])
+	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatalf("did not connect: %v", err)
+	}
+	defer conn.Close()
+	c := proto.NewDatabaseServiceClient(conn)
+
+	// Contact the server and print out its response.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	r, err := c.Create(ctx, &proto.SensorDataPackage{})
+	if err != nil {
+		log.Fatalf("could not create: %v", err)
+	}
+	log.Printf("response: %v", r.GetSuccess())
 }
