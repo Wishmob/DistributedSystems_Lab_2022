@@ -41,7 +41,7 @@ func SendDataToCloudServer(data SensorDataPackage) {
 	resp, err := http.Post(addr, "application/json",
 		bytes.NewBuffer(json_data))
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 	log.Printf("Status: %s\n", resp.Status)
 

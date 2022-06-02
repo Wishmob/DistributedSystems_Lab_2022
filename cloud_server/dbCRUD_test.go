@@ -31,6 +31,7 @@ func TestCRUD(t *testing.T) {
 			//"key1": "value1",
 		}).
 		Invoke()
+	defer compose.Down()
 	err := execError.Error
 	if err != nil {
 		fmt.Errorf("could not run compose file: %v - %v", composeFilePaths, err)
@@ -85,10 +86,5 @@ func TestCRUD(t *testing.T) {
 	//********************
 	//STOP DATABASE SERVER
 	//********************
-	execError = compose.Down()
-	err = execError.Error
-	if err != nil {
-		fmt.Errorf("could not run compose file: %v - %v", composeFilePaths, err)
-	}
 
 }
