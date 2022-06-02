@@ -10,6 +10,9 @@ COPY . /app
 # Set working directory
 WORKDIR /app
 
+# Create folder for logs
+RUN mkdir /logs
+
 # Run command as described:
 # go build will build an executable file named cloud_server in the current directory
 RUN go build -o cloud_server .

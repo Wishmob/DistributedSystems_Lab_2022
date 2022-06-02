@@ -13,6 +13,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 	"vs_praktikum_BreiterSchandl_Di2x/cloud_server/proto"
@@ -50,9 +51,26 @@ func NewSensorDataCollection() SensorDataCollection {
 
 var sensorDataCollection SensorDataCollection
 
-func main() {
+var (
+	TestLoggerP3 *log.Logger
+)
 
-	grpcTest()
+var startTime time.Time
+
+func Uptime() time.Duration {
+	return time.Since(startTime)
+}
+
+func init() {
+	startTime = time.Now()
+	logfileP3, err := os.OpenFile("/logs/P3RttLog.log", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		log.Printf("log directory could not be created. Try creating it manually: %v\n", err)
+	}
+	TestLoggerP3 = log.New(logfileP3, "", 0)
+
+}
+func main() {
 	sensorDataCollection = NewSensorDataCollection()
 
 	//sensorData = make([]SensorDataPackage, 0)
@@ -97,6 +115,10 @@ func postDataHandler(w http.ResponseWriter, req *http.Request) {
 		sensorDataCollection.Mutex.Lock()
 		sensorDataCollection.SensorData = append(sensorDataCollection.SensorData, sensorDataPackage)
 		sensorDataCollection.Mutex.Unlock()
+		timeBeforeCreateRPC := time.Now()
+		CreateSDPinDB(&sensorDataPackage)
+		rttCreateRPC := time.Since(timeBeforeCreateRPC)
+		TestLoggerP3.Printf("rtt rpc: %v", rttCreateRPC)
 		w.WriteHeader(http.StatusOK)
 		log.Printf("recieved data:%v", sensorDataPackage)
 	default:
@@ -133,8 +155,8 @@ func RenderTemplate(w http.ResponseWriter, req *http.Request) {
 
 }
 
-func grpcTest() {
-	time.Sleep(3 * time.Second)
+//CreateSDPinDB sends the given sensorDataPackage to the database server via RPC call
+func CreateSDPinDB(sdp *SensorDataPackage) {
 	ips, err := net.LookupIP("database")
 	if err != nil {
 		log.Println("Database server could not be found.")
@@ -151,23 +173,18 @@ func grpcTest() {
 	// Contact the server and print out its response.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	ts := time.Now()
-	tsPB := timestamppb.New(ts)
-	testSdp := NewSensorDataPackage()
-	testSdp.Timestamp = ts
-	testSdp.Data["123"] = "456"
-	testSdp.SensorCount = 1
-	r, err := c.Create(ctx, &proto.SensorDataPackage{Timestamp: tsPB, Data: testSdp.Data, SensorCount: testSdp.SensorCount})
+	protoBTimestamp := timestamppb.New(sdp.Timestamp)
+	r, err := c.Create(ctx, &proto.SensorDataPackage{Timestamp: protoBTimestamp, Data: sdp.Data, SensorCount: sdp.SensorCount})
+	if err != nil {
+		log.Printf("could not create: %v", err)
+	}
+	log.Printf("creation response: %v", r.GetSuccess())
+
+	res, err := c.Read(ctx, &proto.IDSensorDataPackageTimestamp{Timestamp: protoBTimestamp})
 
 	if err != nil {
-		log.Fatalf("could not create: %v", err)
-	}
-	log.Printf("response: %v", r.GetSuccess())
-	res, err := c.Read(ctx, &proto.IDSensorDataPackageTimestamp{Timestamp: tsPB})
-
-	if err != nil {
-		log.Fatalf("could not create: %v", err)
+		log.Printf("could not create: %v", err)
 	}
 
-	log.Printf("response: %v,%v,%v", res.GetTimestamp(), res.GetSensorCount(), res.GetData())
+	log.Printf("read response: %v,%v,%v", res.GetTimestamp().AsTime(), res.GetSensorCount(), res.GetData())
 }

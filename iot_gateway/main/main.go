@@ -61,6 +61,10 @@ func init() {
 		log.Printf("log directory could not be created. Try creating it manually: %v\n", err)
 	}
 	TestLoggerP2 = log.New(logfileP2, "", 0)
+	TestLoggerP1.Printf("RequestInterval: %v\n", RequestInterval)
+	TestLoggerP1.Printf("Gateway Uptime, Successful Requests, total registered sensors, avgRTT, minRTT, maxRTT\n") //write column names to log file
+	TestLoggerP2.Printf("RequestInterval: %v\n", RequestInterval)
+	TestLoggerP2.Printf("Gateway Uptime, Sensor count, RTT\n") //write column names to log file
 }
 
 func InitSensors() SensorCollection {
@@ -137,11 +141,6 @@ func listenForSensorRegistration(conn *net.UDPConn) {
 
 func pollRegisteredSensors() {
 	//Todo maybe start every request in separate go routine?
-	TestLoggerP1.Printf("RequestInterval: %v\n", RequestInterval)
-	TestLoggerP1.Printf("Gateway Uptime, Successful Requests, total registered sensors, avgRTT, minRTT, maxRTT\n") //write column names to log file
-	TestLoggerP2.Printf("RequestInterval: %v\n", RequestInterval)
-	TestLoggerP2.Printf("Gateway Uptime, Sensor count, RTT\n") //write column names to log file
-
 	for {
 		var rtts []time.Duration
 
