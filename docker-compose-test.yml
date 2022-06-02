@@ -1,0 +1,10 @@
+#This file creates the services which are necessary for running the module tests
+version: '3'
+services:
+  database_test:
+    build: ./database
+    environment:
+      - TZ=Europe/Berlin
+    ports:
+      - "40401:40401"
+

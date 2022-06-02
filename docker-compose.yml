@@ -2,7 +2,6 @@ version: '3'
 services:
   iot_gateway:
     build: ./iot_gateway
-    container_name: iot_gateway
     environment:
       - TZ=Europe/Berlin
     volumes:
@@ -13,14 +12,12 @@ services:
       - TZ=Europe/Berlin
   cloud_server:
     build: ./cloud_server
-    container_name: cloud_server
     ports:
       - "8080:8080"
     environment:
       - TZ=Europe/Berlin
   database:
     build: ./database
-    container_name: database
     environment:
       - TZ=Europe/Berlin
 

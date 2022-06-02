@@ -53,7 +53,6 @@ var sensorDataCollection SensorDataCollection
 func main() {
 
 	grpcTest()
-	log.Printf("dfghjkkjhgfvbnm,nbvbnm,mnbbnm,mnbvbnm,mnbvbnm,mnbvbnm,mnbnm,mnbvbnm,mnbvbnm")
 	sensorDataCollection = NewSensorDataCollection()
 
 	//sensorData = make([]SensorDataPackage, 0)

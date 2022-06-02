@@ -81,7 +81,7 @@ func (s *dbServer) Read(ctx context.Context, sdpTS *proto.IDSensorDataPackageTim
 		}
 	}
 
-	return &proto.SensorDataPackage{}, errors.New("not found")
+	return &proto.SensorDataPackage{}, errors.New("the requested sensordata package was not found")
 	//t := ts.AsTime() //convert back to gotime
 
 }
