@@ -115,11 +115,11 @@ func postDataHandler(w http.ResponseWriter, req *http.Request) {
 		sensorDataCollection.Mutex.Lock()
 		sensorDataCollection.SensorData = append(sensorDataCollection.SensorData, sensorDataPackage)
 		sensorDataCollection.Mutex.Unlock()
+		w.WriteHeader(http.StatusOK)
 		timeBeforeCreateRPC := time.Now()
 		CreateSDPinDB(&sensorDataPackage)
 		rttCreateRPC := time.Since(timeBeforeCreateRPC)
 		TestLoggerP3.Printf("rtt rpc: %v", rttCreateRPC)
-		w.WriteHeader(http.StatusOK)
 		log.Printf("recieved data:%v", sensorDataPackage)
 	default:
 		fmt.Fprintf(w, "Only GET and POST methods are supported for this url.")

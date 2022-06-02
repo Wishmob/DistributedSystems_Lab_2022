@@ -74,12 +74,15 @@ func (s *dbServer) Read(ctx context.Context, sdpTS *proto.IDSensorDataPackageTim
 	//ts := timestamppb.New(time.Now())
 	ts := sdpTS.GetTimestamp().AsTime()
 	sdp := NewSensorDataPackage()
+	sensorDataCollection.Mutex.RLock()
 	for _, sDataP := range sensorDataCollection.SensorData {
 		if sDataP.Timestamp == ts {
 			sdp = sDataP
+			sensorDataCollection.Mutex.RUnlock()
 			return &proto.SensorDataPackage{Timestamp: sdpTS.GetTimestamp(), Data: sdp.Data, SensorCount: sdp.SensorCount}, nil
 		}
 	}
+	sensorDataCollection.Mutex.RUnlock()
 
 	return &proto.SensorDataPackage{}, errors.New("the requested sensordata package was not found")
 	//t := ts.AsTime() //convert back to gotime
@@ -87,11 +90,34 @@ func (s *dbServer) Read(ctx context.Context, sdpTS *proto.IDSensorDataPackageTim
 }
 
 func (s *dbServer) Update(ctx context.Context, sdp *proto.SensorDataPackage) (*proto.Response, error) {
-	//
-	return &proto.Response{Success: true}, nil
+	ts := sdp.GetTimestamp().AsTime()
+	sensorDataCollection.Mutex.Lock()
+	for i, sDataP := range sensorDataCollection.SensorData {
+		if sDataP.Timestamp == ts {
+			//sDataP.Data = sdp.GetData()
+			//sDataP.SensorCount = sdp.GetSensorCount()
+			sensorDataCollection.SensorData[i].Data = sdp.GetData()
+			sensorDataCollection.SensorData[i].SensorCount = sdp.GetSensorCount()
+			sensorDataCollection.Mutex.Unlock()
+			return &proto.Response{Success: true}, nil
+		}
+	}
+	sensorDataCollection.Mutex.Unlock()
+	return &proto.Response{Success: false}, errors.New("the requested sensordata package was not found")
 }
 
-func (s *dbServer) Delete(ctx context.Context, sdp *proto.IDSensorDataPackageTimestamp) (*proto.Response, error) {
-	//
-	return &proto.Response{Success: true}, nil
+//Delete deletes the sensordatapackage with the given timestamp and does not secure order of sensordatapackages
+func (s *dbServer) Delete(ctx context.Context, sdpTS *proto.IDSensorDataPackageTimestamp) (*proto.Response, error) {
+	ts := sdpTS.GetTimestamp().AsTime()
+	sensorDataCollection.Mutex.Lock()
+	for i, sDataP := range sensorDataCollection.SensorData {
+		if sDataP.Timestamp == ts {
+			sensorDataCollection.SensorData[i] = sensorDataCollection.SensorData[len(sensorDataCollection.SensorData)-1]
+			sensorDataCollection.SensorData = sensorDataCollection.SensorData[:len(sensorDataCollection.SensorData)-1]
+			sensorDataCollection.Mutex.Unlock()
+			return &proto.Response{Success: true}, nil
+		}
+	}
+	sensorDataCollection.Mutex.Unlock()
+	return &proto.Response{Success: false}, errors.New("the requested sensordata package was not found")
 }

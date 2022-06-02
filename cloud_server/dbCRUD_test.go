@@ -81,8 +81,35 @@ func TestCRUD(t *testing.T) {
 	log.Printf("Response to Invalid Read RPC call: %v,%v,%v with expected error: %v", readResp.GetTimestamp(), readResp.GetSensorCount(), readResp.GetData(), err)
 
 	//Test Update
-	//Test Delete
+	testSdp.Data["420"] = "1337"
+	log.Printf("Updating map of previously created sensordatapackage to %v", testSdp.Data)
+	testSdp.SensorCount = 2
+	updateResp, err := c.Update(ctx, &proto.SensorDataPackage{Timestamp: tsPB, Data: testSdp.Data, SensorCount: testSdp.SensorCount})
+	if err != nil {
+		t.Errorf("could not update with valid call: %v", err)
+	}
+	log.Printf("Response to Valid Update RPC: %t\n", updateResp.GetSuccess())
 
+	readResp, err = c.Read(ctx, &proto.IDSensorDataPackageTimestamp{Timestamp: tsPB})
+
+	if err != nil {
+		t.Errorf("could not read with valid call: %v", err)
+	}
+	log.Printf("Response to Valid Read RPC after Update: %v,%v,%v\n", readResp.GetTimestamp().AsTime(), readResp.GetSensorCount(), readResp.GetData())
+	//Test Delete
+	deleteResp, err := c.Delete(ctx, &proto.IDSensorDataPackageTimestamp{Timestamp: tsPB})
+	if err != nil {
+		t.Errorf("could not delete with valid call: %v", err)
+	}
+	log.Printf("Response to Valid Delete RPC: %t\n", deleteResp.GetSuccess())
+
+	readResp, err = c.Read(ctx, &proto.IDSensorDataPackageTimestamp{})
+
+	expectedErrorMsg = "rpc error: code = Unknown desc = the requested sensordata package was not found"
+	if err != nil && err.Error() != expectedErrorMsg {
+		t.Errorf("could not read after deletion with invalid call (as expected) but got unexpected error\nExpected: %s\nGot: %v\n", expectedErrorMsg, err)
+	}
+	log.Printf("Response to Read RPC with timestamp of deleted sensordatapackage: %v,%v,%v with expected error: %v", readResp.GetTimestamp(), readResp.GetSensorCount(), readResp.GetData(), err)
 	//********************
 	//STOP DATABASE SERVER
 	//********************
