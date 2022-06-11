@@ -2,6 +2,9 @@
 
 by Alexander Breiter & Lukas Schandl
 
+
+![System Architecture](/img/VSArchitecture.png)
+
 ## Building and Usage:
 0. Install docker, see [docs](https://www.docker.com/get-started/)
 
