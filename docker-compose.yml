@@ -22,4 +22,22 @@ services:
     build: ./database
     environment:
       - TZ=Europe/Berlin
-
+  mqtt_adapter:
+    build: ./mqtt_adapter
+    environment:
+      - TZ=Europe/Berlin
+  mqtt_sensor:
+    build: ./mqtt_sensor
+    environment:
+      - TZ=Europe/Berlin
+  mosquitto_broker:
+    build: ./mqtt_broker
+    container_name: mosquitto_broker
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./config:/mosquitto/config/conf.d:rw
+      - ./log:/mosquitto/log:rw
+    environment:
+      - TZ=Europe/Berlin
