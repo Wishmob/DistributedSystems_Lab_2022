@@ -38,6 +38,6 @@ services:
       - "9001:9001"
     volumes:
       - ./config:/mosquitto/config/conf.d:rw
-      - ./log:/mosquitto/log:rw
+      - ./mqtt_broker/mosquitto_logs:/mosquitto/log:rw
     environment:
       - TZ=Europe/Berlin

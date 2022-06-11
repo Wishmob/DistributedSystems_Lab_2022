@@ -1,23 +1,26 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"log"
 	"math/rand"
 	"net"
-	"strconv"
+	"os"
 	"time"
 )
 
 const (
-	brokerProtocol = "tcp"
-	brokerPort     = 1883
-	clientID       = "testSensor"
-	topic          = "mqtt-sensor-data"
-	mqttQosBit     = 2 // Quality of Service: exactly once
-
+	brokerProtocol      = "tcp"
+	brokerPort          = 1883
+	topic               = "mqtt-sensor-data"
+	mqttQosBit          = 2               // Quality of Service: exactly once
+	DataPublishInterval = 5 * time.Second //Time delay between publishing data
+	DataPublishDelay    = 5 * time.Second //Time delay before the mqtt sensor starts publishing data after start
 )
+
+var sensorID string
 
 func generateData() int {
 	max := 100
@@ -26,11 +29,27 @@ func generateData() int {
 	return randomData
 }
 
+type SensorData struct {
+	SensorID  string    `json:"sensorid"`
+	Timestamp time.Time `json:"timestamp"`
+	Data      int       `json:"data"`
+}
+
+func NewSensorData() SensorData {
+	return SensorData{
+		SensorID:  sensorID,
+		Timestamp: time.Now(),
+		Data:      generateData(),
+	}
+}
+
 func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
 }
 
 func main() {
+	time.Sleep(DataPublishDelay) //give broker time to start
+
 	ips, err := net.LookupIP("mosquitto_broker")
 	if err != nil {
 		log.Println("Mosquitto broker could not be found.")
@@ -43,11 +62,10 @@ func main() {
 	// create and configure the client options
 	options := mqtt.NewClientOptions()
 	options.AddBroker(brokerURI)
-	options.SetClientID(clientID)
+	sensorID = fmt.Sprintf("sensor[%s]", os.Getenv("HOSTNAME"))
+	options.SetClientID(sensorID)
 
 	client := mqtt.NewClient(options)
-
-	time.Sleep(5 * time.Second) //give broker time to start
 
 	// Connect to MQTT broker
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
@@ -58,14 +76,18 @@ func main() {
 
 	for {
 		sendData(&client)
-		time.Sleep(5 * time.Second)
+		time.Sleep(DataPublishInterval)
 	}
 }
 
 func sendData(client *mqtt.Client) {
-	data := strconv.Itoa(generateData())
-	if token := (*client).Publish(topic, mqttQosBit, false, data); token.Wait() && token.Error() != nil {
-		panic(token.Error())
+	data := NewSensorData()
+	dataJSON, err := json.Marshal(data)
+	if err != nil {
+		log.Println(err)
 	}
-	log.Printf("Published data: %d\n", data)
+	if token := (*client).Publish(topic, mqttQosBit, false, dataJSON); token.Wait() && token.Error() != nil {
+		log.Println(token.Error())
+	}
+	log.Printf("Published data: %v\n", data)
 }

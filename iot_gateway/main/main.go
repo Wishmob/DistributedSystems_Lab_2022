@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"net"
 	"os"
@@ -18,6 +19,14 @@ const (
 	Brightness         = "BRT"
 )
 
+const (
+	ReadBufferSize             int = 32              //The size of the buffers used to read from the udp sockets
+	RequestInterval                = 1 * time.Second //Time delay between requesting data from all sensors
+	RequestDelay                   = 3 * time.Second //Time delay before the iot gateway starts polling the registered sensors for data via udp
+	RegistrationPort               = 5000            //Port on which the gateway is listening for new sensors
+	UnregisteredSensorDataPort     = 7777            //Port on which the gateway is listening for data from unregistered sensors / adapters
+)
+
 var (
 	TestLoggerP1 *log.Logger
 	TestLoggerP2 *log.Logger
@@ -30,12 +39,11 @@ type Sensor struct {
 	DataPort int //The udp port on which the sensor will listen for data requests
 }
 
-const (
-	ReadBufferSize   int = 32              //The size of the buffers used to read from the udp sockets
-	RequestInterval      = 1 * time.Second //Time delay between requesting data from all sensors
-	RequestDelay         = 3 * time.Second
-	RegistrationPort     = 5000 //Port on which the gateway is listening for new sensors
-)
+type SensorData struct {
+	SensorID  string    `json:"sensorid"`
+	Timestamp time.Time `json:"timestamp"`
+	Data      int       `json:"data"`
+}
 
 type SensorCollection struct {
 	sensors map[string]Sensor
@@ -98,6 +106,12 @@ func main() {
 	}()
 
 	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		handleUnregisteredData()
+	}()
+
+	wg.Add(1)
 	time.Sleep(RequestDelay) //Give sensors time to register before starting to request data
 	go func() {
 		defer wg.Done()
@@ -139,8 +153,9 @@ func listenForSensorRegistration(conn *net.UDPConn) {
 	}
 }
 
+// pollRegisteredSensors requests data via udp from all sensors which are registered, measures the RTT
+// and sends the data for all sensors in a package to the cloud server via http
 func pollRegisteredSensors() {
-	//Todo maybe start every request in separate go routine?
 	for {
 		var rtts []time.Duration
 
@@ -185,7 +200,7 @@ func pollRegisteredSensors() {
 			successfulRequests++
 			conn.Close()
 			rtt := time.Since(timeBefore)
-			log.Printf("RTT:%v\n", rtt)
+			//log.Printf("RTT:%v\n", rtt)
 			//TestLoggerP1.Printf("%v\n", rtt) //print rtt
 			rtts = append(rtts, rtt)
 			dataPackage.Data[currentSensor.Id] = string(dataBuffer[0:length])
@@ -197,6 +212,49 @@ func pollRegisteredSensors() {
 		httpInterface.SendDataToCloudServer(dataPackage)
 		rttPost := time.Since(timeBeforePost)
 		TestLoggerP2.Printf("%v, %d, %v\n", int(Uptime().Seconds()), len(registeredSensors.sensors), rttPost)
+
+	}
+}
+
+//handleUnregisteredData handles all incoming sensor data from unregistered sensors / adapters
+func handleUnregisteredData() {
+	addr, err := net.ResolveUDPAddr("udp4", ":"+strconv.Itoa(UnregisteredSensorDataPort))
+	if err != nil {
+		panic(err)
+	}
+
+	udpConn, err := net.ListenUDP("udp", addr)
+	if err != nil {
+		panic(err)
+	}
+	defer udpConn.Close()
+	for {
+		var buf [512]byte
+		bytesRead, addr, err := udpConn.ReadFromUDP(buf[0:])
+		if err != nil {
+			panic(err)
+		}
+		if err != nil {
+			panic(err)
+		}
+		var sensorData SensorData
+		err = json.Unmarshal(buf[0:bytesRead], &sensorData)
+		if err != nil {
+			log.Println(err)
+		}
+		log.Printf("Data: %v ,recieved from %v\n", sensorData, addr)
+		//type SensorData struct {
+		//	SensorID  string    `json:"sensorid"`
+		//	Timestamp time.Time `json:"timestamp"`
+		//	Data      int       `json:"data"`
+		//}
+
+		sdp := httpInterface.NewSensorDataPackage()
+		sdp.Timestamp = sensorData.Timestamp
+		sdp.SensorCount = 1
+		sdp.Data[sensorData.SensorID] = strconv.Itoa(sensorData.Data)
+
+		httpInterface.SendDataToCloudServer(sdp)
 
 	}
 }

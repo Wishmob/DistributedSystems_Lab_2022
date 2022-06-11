@@ -178,13 +178,14 @@ func CreateSDPinDB(sdp *SensorDataPackage) {
 	if err != nil {
 		log.Printf("could not create: %v", err)
 	}
-	log.Printf("creation response: %v", r.GetSuccess())
+	log.Printf("successfully saved package with timestamp %v in database via RPC. Got response: %v", sdp.Timestamp, r.GetSuccess())
 
-	res, err := c.Read(ctx, &proto.IDSensorDataPackageTimestamp{Timestamp: protoBTimestamp})
-
-	if err != nil {
-		log.Printf("could not create: %v", err)
-	}
-
-	log.Printf("read response: %v,%v,%v", res.GetTimestamp().AsTime(), res.GetSensorCount(), res.GetData())
+	// Test if package has actually been saved successfully to database
+	//res, err := c.Read(ctx, &proto.IDSensorDataPackageTimestamp{Timestamp: protoBTimestamp})
+	//
+	//if err != nil {
+	//	log.Printf("Did not find recently created package in database: %v", err)
+	//}
+	//
+	//log.Printf("read response: %v,%v,%v", res.GetTimestamp().AsTime(), res.GetSensorCount(), res.GetData())
 }

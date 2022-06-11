@@ -43,6 +43,6 @@ func SendDataToCloudServer(data SensorDataPackage) {
 	if err != nil {
 		log.Println(err)
 	}
-	log.Printf("Status: %s\n", resp.Status)
+	log.Printf("Successfully sent package with timestamp %v to cloud server via HTTP Post. Got: %s\n", data.Timestamp, resp.Status)
 
 }

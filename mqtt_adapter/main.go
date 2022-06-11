@@ -1,23 +1,37 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"log"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 )
 
 const (
-	brokerProtocol = "tcp"
-	brokerPort     = 1883
-	clientID       = "testAdapter"
-	topic          = "mqtt-sensor-data"
-	mqttQosBit     = 2 // Quality of Service: exactly once
+	brokerProtocol     = "tcp"
+	brokerPort         = 1883
+	clientID           = "testAdapter"
+	topic              = "mqtt-sensor-data"
+	mqttQosBit         = 2               // Quality of Service: exactly once
+	IotGatewayDataPort = 7777            //Port of iot gateway to which the adapter forwards the data received via mqtt
+	SubscribeDelay     = 5 * time.Second //Time delay before the mqtt adapter subscribes to the data topic
 )
 
+type SensorData struct {
+	SensorID  string    `json:"sensorid"`
+	Timestamp time.Time `json:"timestamp"`
+	Data      int       `json:"data"`
+}
+
+var udpAddrOfGateway *net.UDPAddr
+
 func main() {
+
+	time.Sleep(SubscribeDelay) //give broker & iot gateway time to start
 
 	ips, err := net.LookupIP("mosquitto_broker")
 	if err != nil {
@@ -35,7 +49,11 @@ func main() {
 
 	client := mqtt.NewClient(options)
 
-	time.Sleep(5 * time.Second) //give broker time to start
+	// resolve address von iot_gateway to forward data to
+	udpAddrOfGateway, err = net.ResolveUDPAddr("udp4", "iot_gateway"+":"+strconv.Itoa(IotGatewayDataPort))
+	if err != nil {
+		log.Println(err)
+	}
 
 	// Connect to MQTT broker
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
@@ -45,7 +63,7 @@ func main() {
 	log.Printf("Connected to MQTT broker: %s\n", brokerURI)
 
 	// Subscribe to a topic
-	if token := client.Subscribe(topic, mqttQosBit, simpleMessageHandler); token.Wait() && token.Error() != nil {
+	if token := client.Subscribe(topic, mqttQosBit, processSensorMessages); token.Wait() && token.Error() != nil {
 		panic(token.Error())
 	}
 	defer client.Unsubscribe()
@@ -57,7 +75,23 @@ func main() {
 	wg.Wait()
 }
 
-// message hander that prints the payload of received messages to logger
-func simpleMessageHandler(client mqtt.Client, message mqtt.Message) {
-	log.Printf("Message received: %s\n", message.Payload())
+// processSensorMessages is the message handler that forwards the mqtt messages retrieved from the sensors to the iot gateway via udp
+func processSensorMessages(client mqtt.Client, message mqtt.Message) {
+	var data SensorData
+	err := json.Unmarshal(message.Payload(), &data)
+	if err != nil {
+		log.Println(err)
+	}
+	log.Printf("Message received: %v\n", data)
+	// forward data to gateway
+	conn, err := net.DialUDP("udp", nil, udpAddrOfGateway)
+	if err != nil {
+		log.Println(err)
+	}
+	defer conn.Close()
+
+	_, err = conn.Write(message.Payload())
+	if err != nil {
+		log.Println(err)
+	}
 }
