@@ -10,6 +10,7 @@ COPY . /app
 # Set working directory
 WORKDIR /app
 
+RUN mkdir /logs
 # Run command as described:
 # go build will build an executable file named mqtt_adapter in the current directory
 RUN go build -o mqtt_adapter .

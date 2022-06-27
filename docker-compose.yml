@@ -26,6 +26,8 @@ services:
     build: ./mqtt_adapter
     environment:
       - TZ=Europe/Berlin
+    volumes:
+      - ./logs:/logs
   mqtt_sensor:
     build: ./mqtt_sensor
     environment:

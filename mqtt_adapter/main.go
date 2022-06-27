@@ -6,6 +6,7 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"log"
 	"net"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -27,7 +28,21 @@ type SensorData struct {
 	Data      int       `json:"data"`
 }
 
-var udpAddrOfGateway *net.UDPAddr
+var (
+	Mutex            sync.RWMutex
+	TestLoggerP4     *log.Logger
+	udpAddrOfGateway *net.UDPAddr
+	messageCounter   = 0
+	startTime        time.Time
+)
+
+func init() {
+	logfileP4, err := os.OpenFile("/logs/P4PerformanceLog.log", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		log.Printf("log directory could not be created. Try creating it manually: %v\n", err)
+	}
+	TestLoggerP4 = log.New(logfileP4, "", 0)
+}
 
 func main() {
 
@@ -72,11 +87,32 @@ func main() {
 	// block until process is canceled
 	var wg sync.WaitGroup
 	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		measurePerformance()
+	}()
+	wg.Add(1)
 	wg.Wait()
+}
+
+func measurePerformance() {
+	ticker := time.NewTicker(1 * time.Second)
+	for range ticker.C {
+		Mutex.Lock()
+		if messageCounter > 0 {
+			TestLoggerP4.Printf("%v/sek", messageCounter)
+			messageCounter = 0
+		}
+		Mutex.Unlock()
+	}
+
 }
 
 // processSensorMessages is the message handler that forwards the mqtt messages retrieved from the sensors to the iot gateway via udp
 func processSensorMessages(client mqtt.Client, message mqtt.Message) {
+	Mutex.Lock()
+	messageCounter++
+	Mutex.Unlock()
 	var data SensorData
 	err := json.Unmarshal(message.Payload(), &data)
 	if err != nil {
