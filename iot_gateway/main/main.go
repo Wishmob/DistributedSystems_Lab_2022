@@ -87,12 +87,12 @@ var registeredSensors SensorCollection
 func main() {
 	addr, err := net.ResolveUDPAddr("udp4", ":"+strconv.Itoa(RegistrationPort))
 	if err != nil {
-		panic(err)
+		log.Println(err)
 	}
 
 	conn, err := net.ListenUDP("udp", addr)
 	if err != nil {
-		panic(err)
+		log.Println(err)
 	}
 	defer conn.Close()
 
@@ -128,7 +128,7 @@ func listenForSensorRegistration(conn *net.UDPConn) {
 		length, addr, err := conn.ReadFromUDP(buf[0:])
 		log.Printf("New sensor with Addr %v requests registraton: %s\n", addr, buf)
 		if err != nil {
-			panic(err)
+			log.Println(err)
 		}
 		sensorData := strings.Split(string(buf[:]), "|")
 		var sensor Sensor
@@ -136,7 +136,7 @@ func listenForSensorRegistration(conn *net.UDPConn) {
 		sensor.Id = sensorData[1]
 		sensor.DataPort, err = strconv.Atoi(sensorData[2])
 		if err != nil {
-			panic(err)
+			log.Println(err)
 		}
 		sensor.Addr = *addr
 
@@ -147,7 +147,7 @@ func listenForSensorRegistration(conn *net.UDPConn) {
 
 		_, err = conn.WriteToUDP(buf[0:length], addr)
 		if err != nil {
-			panic(err)
+			log.Println(err)
 		}
 		log.Printf("sensor registriert: %v total:%d\n", sensor, len(registeredSensors.sensors))
 	}
@@ -220,22 +220,22 @@ func pollRegisteredSensors() {
 func handleUnregisteredData() {
 	addr, err := net.ResolveUDPAddr("udp4", ":"+strconv.Itoa(UnregisteredSensorDataPort))
 	if err != nil {
-		panic(err)
+		log.Println(err)
 	}
 
 	udpConn, err := net.ListenUDP("udp", addr)
 	if err != nil {
-		panic(err)
+		log.Println(err)
 	}
 	defer udpConn.Close()
 	for {
 		var buf [512]byte
 		bytesRead, addr, err := udpConn.ReadFromUDP(buf[0:])
 		if err != nil {
-			panic(err)
+			log.Println(err)
 		}
 		if err != nil {
-			panic(err)
+			log.Println(err)
 		}
 		var sensorData SensorData
 		err = json.Unmarshal(buf[0:bytesRead], &sensorData)

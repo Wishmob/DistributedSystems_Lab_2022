@@ -5,11 +5,11 @@ build:
 start5:
 	docker compose up --build --scale sensor=5 --scale mqtt_sensor=5
 start25:
-	docker compose up --build --scale sensor=25 --scale mqtt_sensor=25
+	docker compose up --build --scale sensor=25 --scale mqtt_sensor=5
 start50:
-	docker compose up --build --scale sensor=50 --scale mqtt_sensor=50
+	docker compose up --build --scale sensor=50 --scale mqtt_sensor=5
 start100:
-	docker compose up --build --scale sensor=100 --scale mqtt_sensor=100
+	docker compose up --build --scale sensor=100 --scale mqtt_sensor=5
 fmt:
 	gofmt -s -w ./..
 clean:

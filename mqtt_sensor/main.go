@@ -15,9 +15,9 @@ const (
 	brokerProtocol      = "tcp"
 	brokerPort          = 1883
 	topic               = "mqtt-sensor-data"
-	mqttQosBit          = 2               // Quality of Service: exactly once
-	DataPublishInterval = 5 * time.Second //Time delay between publishing data
-	DataPublishDelay    = 5 * time.Second //Time delay before the mqtt sensor starts publishing data after start
+	mqttQosBit          = 2                // Quality of Service: exactly once
+	DataPublishInterval = 0 * time.Second  //Time delay between publishing data
+	DataPublishDelay    = 10 * time.Second //Time delay before the mqtt sensor starts publishing data after start
 )
 
 var sensorID string
@@ -68,8 +68,11 @@ func main() {
 	client := mqtt.NewClient(options)
 
 	// Connect to MQTT broker
-	if token := client.Connect(); token.Wait() && token.Error() != nil {
-		panic(token.Error())
+	token := client.Connect()
+	for token.Wait() && token.Error() != nil {
+		log.Println(token.Error())
+		time.Sleep(3 * time.Second)
+		token = client.Connect()
 	}
 	defer client.Disconnect(0)
 	log.Printf("Connected to MQTT broker: %s\n", brokerURI)
