@@ -66,6 +66,7 @@ func (s *dbServer) Create(ctx context.Context, sdp *proto.SensorDataPackage) (*p
 	sensorDataCollection.Mutex.Lock()
 	sensorDataCollection.SensorData = append(sensorDataCollection.SensorData, sensorDataPackage)
 	sensorDataCollection.Mutex.Unlock()
+	log.Printf("Successfully saved Sensor Data Package %v to database", sensorDataPackage)
 	return &proto.Response{Success: true}, nil
 }
 

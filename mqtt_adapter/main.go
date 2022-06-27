@@ -77,12 +77,17 @@ func main() {
 
 // processSensorMessages is the message handler that forwards the mqtt messages retrieved from the sensors to the iot gateway via udp
 func processSensorMessages(client mqtt.Client, message mqtt.Message) {
+
+	//*************
+	//just to check if data arrives correctly at adapter
 	var data SensorData
 	err := json.Unmarshal(message.Payload(), &data)
 	if err != nil {
 		log.Println(err)
 	}
 	log.Printf("Message received: %v\n", data)
+	//*************
+
 	// forward data to gateway
 	conn, err := net.DialUDP("udp", nil, udpAddrOfGateway)
 	if err != nil {

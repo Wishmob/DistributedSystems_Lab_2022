@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package proto; //name of the mpdule which is created automatically by protoc compiler
+package proto; //name of the module which is created automatically by protoc compiler
 
 option go_package = "../proto";
 
