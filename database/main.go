@@ -122,3 +122,8 @@ func (s *dbServer) Delete(ctx context.Context, sdpTS *proto.IDSensorDataPackageT
 	sensorDataCollection.Mutex.Unlock()
 	return &proto.Response{Success: false}, errors.New("the requested sensordata package was not found")
 }
+
+//Ping allows a client to check if the database is reachable
+func (s *dbServer) Ping(ctx context.Context, id *proto.Request) (*proto.Response, error) {
+	return &proto.Response{Success: true}, nil
+}

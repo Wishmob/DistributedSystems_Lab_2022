@@ -18,7 +18,11 @@ services:
       - TZ=Europe/Berlin
     volumes:
       - ./logs:/logs
-  database:
+  database1:
+    build: ./database
+    environment:
+      - TZ=Europe/Berlin
+  database2:
     build: ./database
     environment:
       - TZ=Europe/Berlin

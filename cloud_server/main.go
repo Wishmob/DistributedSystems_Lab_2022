@@ -157,31 +157,69 @@ func RenderTemplate(w http.ResponseWriter, req *http.Request) {
 
 //CreateSDPinDB sends the given sensorDataPackage to the database server via RPC call
 func CreateSDPinDB(sdp *SensorDataPackage) {
-	ips, err := net.LookupIP("database")
+	ipsDB1, err := net.LookupIP("database1")
 	if err != nil {
-		log.Println("Database server could not be found.")
+		log.Println("Database 1 server could not be found.")
 		return
 	}
-	addr := fmt.Sprintf("%s:40401", ips[0])
-	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	ipsDB2, err := net.LookupIP("database2")
 	if err != nil {
-		log.Fatalf("did not connect: %v", err)
+		log.Println("Database 2 server could not be found.")
+		return
 	}
-	defer conn.Close()
-	c := proto.NewDatabaseServiceClient(conn)
+
+	addrDB1 := fmt.Sprintf("%s:40401", ipsDB1[0])
+	addrDB2 := fmt.Sprintf("%s:40401", ipsDB2[0])
+
+	connDB1, err := grpc.Dial(addrDB1, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("did not connect: %v", err)
+		return
+	}
+	defer connDB1.Close()
+	clientDB1 := proto.NewDatabaseServiceClient(connDB1)
+
+	connDB2, err := grpc.Dial(addrDB2, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("did not connect: %v", err)
+		return
+	}
+	defer connDB2.Close()
+	clientDB2 := proto.NewDatabaseServiceClient(connDB2)
 
 	// Contact the server and print out its response.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	protoBTimestamp := timestamppb.New(sdp.Timestamp)
-	r, err := c.Create(ctx, &proto.SensorDataPackage{Timestamp: protoBTimestamp, Data: sdp.Data, SensorCount: sdp.SensorCount})
+
+	pingRespDB1, err := clientDB1.Ping(ctx, &proto.Request{Id: 5})
 	if err != nil {
-		log.Printf("could not create: %v", err)
+		log.Printf("Error pinging DB1: %v", err)
+		return
 	}
-	log.Printf("successfully saved package with timestamp %v in database via RPC. Got response: %v", sdp.Timestamp, r.GetSuccess())
+	pingRespDB2, err := clientDB2.Ping(ctx, &proto.Request{Id: 5})
+	if err != nil {
+		log.Printf("Error pinging DB2: %v", err)
+		return
+	}
+
+	if pingRespDB1.GetSuccess() && pingRespDB2.GetSuccess() {
+		protoBTimestamp := timestamppb.New(sdp.Timestamp)
+		createRespDB1, err := clientDB1.Create(ctx, &proto.SensorDataPackage{Timestamp: protoBTimestamp, Data: sdp.Data, SensorCount: sdp.SensorCount})
+		if err != nil {
+			log.Printf("could not create in db1: %v", err)
+		}
+		createRespDB2, err := clientDB2.Create(ctx, &proto.SensorDataPackage{Timestamp: protoBTimestamp, Data: sdp.Data, SensorCount: sdp.SensorCount})
+		if err != nil {
+			log.Printf("could not create in db2: %v", err)
+		}
+		log.Printf("successfully saved package with timestamp %v to databases via RPC. Got responses: %v and %v", sdp.Timestamp, createRespDB1.GetSuccess(), createRespDB2.GetSuccess())
+	} else {
+		log.Println("Not both databases were ready to receive data. Saving to databases aborted...")
+		return
+	}
 
 	// Test if package has actually been saved successfully to database
-	//res, err := c.Read(ctx, &proto.IDSensorDataPackageTimestamp{Timestamp: protoBTimestamp})
+	//res, err := clientDB1.Read(ctx, &proto.IDSensorDataPackageTimestamp{Timestamp: protoBTimestamp})
 	//
 	//if err != nil {
 	//	log.Printf("Did not find recently created package in database: %v", err)

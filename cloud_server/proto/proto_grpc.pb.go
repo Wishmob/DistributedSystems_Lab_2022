@@ -22,6 +22,7 @@ type DatabaseServiceClient interface {
 	Read(ctx context.Context, in *IDSensorDataPackageTimestamp, opts ...grpc.CallOption) (*SensorDataPackage, error)
 	Update(ctx context.Context, in *SensorDataPackage, opts ...grpc.CallOption) (*Response, error)
 	Delete(ctx context.Context, in *IDSensorDataPackageTimestamp, opts ...grpc.CallOption) (*Response, error)
+	Ping(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Response, error)
 }
 
 type databaseServiceClient struct {
@@ -68,6 +69,15 @@ func (c *databaseServiceClient) Delete(ctx context.Context, in *IDSensorDataPack
 	return out, nil
 }
 
+func (c *databaseServiceClient) Ping(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Response, error) {
+	out := new(Response)
+	err := c.cc.Invoke(ctx, "/proto.DatabaseService/Ping", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DatabaseServiceServer is the server API for DatabaseService service.
 // All implementations must embed UnimplementedDatabaseServiceServer
 // for forward compatibility
@@ -76,6 +86,7 @@ type DatabaseServiceServer interface {
 	Read(context.Context, *IDSensorDataPackageTimestamp) (*SensorDataPackage, error)
 	Update(context.Context, *SensorDataPackage) (*Response, error)
 	Delete(context.Context, *IDSensorDataPackageTimestamp) (*Response, error)
+	Ping(context.Context, *Request) (*Response, error)
 	mustEmbedUnimplementedDatabaseServiceServer()
 }
 
@@ -94,6 +105,9 @@ func (UnimplementedDatabaseServiceServer) Update(context.Context, *SensorDataPac
 }
 func (UnimplementedDatabaseServiceServer) Delete(context.Context, *IDSensorDataPackageTimestamp) (*Response, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Delete not implemented")
+}
+func (UnimplementedDatabaseServiceServer) Ping(context.Context, *Request) (*Response, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Ping not implemented")
 }
 func (UnimplementedDatabaseServiceServer) mustEmbedUnimplementedDatabaseServiceServer() {}
 
@@ -180,6 +194,24 @@ func _DatabaseService_Delete_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DatabaseService_Ping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Request)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DatabaseServiceServer).Ping(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.DatabaseService/Ping",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DatabaseServiceServer).Ping(ctx, req.(*Request))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // DatabaseService_ServiceDesc is the grpc.ServiceDesc for DatabaseService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -202,6 +234,10 @@ var DatabaseService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Delete",
 			Handler:    _DatabaseService_Delete_Handler,
+		},
+		{
+			MethodName: "Ping",
+			Handler:    _DatabaseService_Ping_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

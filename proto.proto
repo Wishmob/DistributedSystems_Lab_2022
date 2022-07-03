@@ -12,6 +12,10 @@ message SensorDataPackage {
   map<string, string> data = 3; //map<key_type, value_type> map_field = N;
 }
 
+message Request {
+  int32 id = 1;
+}
+
 message Response {
   bool success = 1;
 }
@@ -25,6 +29,7 @@ service DatabaseService{
   rpc Read(IDSensorDataPackageTimestamp) returns (SensorDataPackage);
   rpc Update(SensorDataPackage) returns (Response);
   rpc Delete(IDSensorDataPackageTimestamp) returns (Response);
+  rpc Ping(Request) returns (Response);
 }
 
 //folder structure: root with proto file in it

@@ -16,7 +16,7 @@ const (
 	brokerPort          = 1883
 	topic               = "mqtt-sensor-data"
 	mqttQosBit          = 2                // Quality of Service: exactly once
-	DataPublishInterval = 0 * time.Second  //Time delay between publishing data
+	DataPublishInterval = 2 * time.Second  //Time delay between publishing data
 	DataPublishDelay    = 10 * time.Second //Time delay before the mqtt sensor starts publishing data after start
 )
 
